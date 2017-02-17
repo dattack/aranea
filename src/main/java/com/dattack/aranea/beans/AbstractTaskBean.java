@@ -23,33 +23,13 @@ import javax.xml.bind.annotation.XmlAttribute;
  */
 public abstract class AbstractTaskBean {
 
-    private static final int DEFAULT_THREAD_POOL_SIZE = 3;
-    private static final int DEFAULT_TIMEOUT = 30000;
-    
     @XmlAttribute(name = XmlTokens.ID, required = true)
     private String id;
 
     @XmlAttribute(name = XmlTokens.REPOSITORY, required = true)
     private String repository;
     
-    @XmlAttribute(name = XmlTokens.HOME, required = true)
-    private String home;
-
-    @XmlAttribute(name = XmlTokens.LATENCY, required = true)
-    private long latency;
-    
-    @XmlAttribute(name = XmlTokens.THREAD_POOL_SIZE, required = false)
-    private int threadPoolSize;
-
-    @XmlAttribute(name = XmlTokens.TIMEOUT, required = false)
-    private long timeout;
-
-    @XmlAttribute(name = XmlTokens.USER_AGENT, required = false)
-    private String userAgent;
-    
     public AbstractTaskBean() {
-        this.timeout = DEFAULT_TIMEOUT;
-        this.threadPoolSize = DEFAULT_THREAD_POOL_SIZE;
         this.repository = ".";
     }
     
@@ -57,27 +37,7 @@ public abstract class AbstractTaskBean {
         return id;
     }
     
-    public final String getHome() {
-        return home;
-    }
-
-    public final long getLatency() {
-        return latency;
-    }
-
     public final String getRepository() {
         return repository;
-    }
-
-    public final int getThreadPoolSize() {
-        return threadPoolSize;
-    }
-
-    public final long getTimeout() {
-        return timeout;
-    }
-
-    public final String getUserAgent() {
-        return userAgent;
     }
 }

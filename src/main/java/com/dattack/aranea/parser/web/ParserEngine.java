@@ -40,7 +40,7 @@ public final class ParserEngine {
 
         execute(new DataExtractor(sourceBean.getParser().getMetadata()), //
                 new DataTransformer(sourceBean.getParser().getOutput()), //
-                new File(sourceBean.getCrawler().getRepository()), //
+                new File(sourceBean.getRepository()), //
                 dataWriter);
     }
 

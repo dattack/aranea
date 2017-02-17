@@ -27,14 +27,13 @@ import com.dattack.aranea.beans.web.parser.ParserBean;
  * @since 0.1
  */
 public class WebBean extends AbstractTaskBean {
-
-
+    
     @XmlElement(name = XmlTokens.CRAWLER, required = true)
     private CrawlerBean crawler;
 
     @XmlElement(name = XmlTokens.PARSER, required = true)
     private ParserBean parser;
-
+    
     public CrawlerBean getCrawler() {
         return crawler;
     }

@@ -157,7 +157,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
         try {
             pageStatus.setFilename(filenameGenerator.getFilename(page.getUri()));
-            File file = new File(getCrawlerBean().getRepository(), pageStatus.getFilename());
+            File file = new File(getSourceBean().getRepository(), pageStatus.getFilename());
             FileUtils.writeStringToFile(file, doc.html());
             log.debug("{} stored as {}", page.getUri().toString(), pageStatus.getFilename());
         } catch (UnknownFilenameException e) {

@@ -44,9 +44,6 @@ public class CrawlerBean {
     @XmlElement(name = XmlTokens.NORMALIZER, required = false)
     private final List<URINormalizerBean> normalizerList;
 
-    @XmlAttribute(name = XmlTokens.REPOSITORY, required = true)
-    private final String repository;
-
     @XmlElement(name = XmlTokens.STORAGE, required = true)
     private StorageBean storageBean;
 
@@ -64,7 +61,6 @@ public class CrawlerBean {
         this.normalizerList = new ArrayList<>();
         this.timeout = DEFAULT_TIMEOUT;
         this.threadPoolSize = DEFAULT_THREAD_POOL_SIZE;
-        this.repository = ".";
     }
 
     public List<RegionSelectorBean> getRegionSelectorList() {
@@ -81,10 +77,6 @@ public class CrawlerBean {
 
     public List<URINormalizerBean> getNormalizerList() {
         return normalizerList;
-    }
-
-    public String getRepository() {
-        return repository;
     }
 
     public StorageBean getStorageBean() {
@@ -108,7 +100,6 @@ public class CrawlerBean {
         StringBuilder builder = new StringBuilder();
         builder.append("CrawlerBean [home=").append(home) //
         .append(", latency=").append(latency) //
-        .append(", repository=").append(repository) //
         .append(", regionSelectorList=").append(regionSelectorList) //
         .append(", uriNormalizerList=").append(normalizerList).append("]");
         return builder.toString();
