@@ -35,8 +35,8 @@ public class CrawlerBean {
     @XmlElement(name = XmlTokens.REGION, required = true)
     private final List<RegionSelectorBean> regionSelectorList;
 
-    @XmlAttribute(name = XmlTokens.HOME, required = true)
-    private String home;
+    @XmlElement(name = XmlTokens.HOME, required = true)
+    private final List<String> homeList;
 
     @XmlAttribute(name = XmlTokens.LATENCY, required = true)
     private long latency;
@@ -58,6 +58,7 @@ public class CrawlerBean {
 
     public CrawlerBean() {
         this.regionSelectorList = new ArrayList<>();
+        this.homeList = new ArrayList<>();
         this.normalizerList = new ArrayList<>();
         this.timeout = DEFAULT_TIMEOUT;
         this.threadPoolSize = DEFAULT_THREAD_POOL_SIZE;
@@ -67,8 +68,8 @@ public class CrawlerBean {
         return regionSelectorList;
     }
 
-    public String getHome() {
-        return home;
+    public List<String> getHomeList() {
+        return homeList;
     }
 
     public long getLatency() {
@@ -98,7 +99,7 @@ public class CrawlerBean {
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append("CrawlerBean [home=").append(home) //
+        builder.append("CrawlerBean [home=").append(homeList) //
         .append(", latency=").append(latency) //
         .append(", regionSelectorList=").append(regionSelectorList) //
         .append(", uriNormalizerList=").append(normalizerList).append("]");

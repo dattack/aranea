@@ -93,7 +93,9 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
     public void execute() {
         try {
-            submit(new Page(new URI(getCrawlerBean().getHome())));
+            for (final String url : getCrawlerBean().getHomeList()) {
+                submit(new Page(new URI(url)));
+            }
         } catch (URISyntaxException e) {
             log.error(e.getMessage());
         }
