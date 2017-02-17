@@ -37,7 +37,7 @@ class CrawlerWebTaskStatus {
     }
 
     private int incrErrorCounter(final Page uri) {
-    	
+
         Short counter = errorCounter.get(uri);
         if (counter == null) {
             counter = 1;
@@ -71,12 +71,24 @@ class CrawlerWebTaskStatus {
         return false;
     }
 
+    public Set<Page> getErrorUris() {
+        return errorCounter.keySet();
+    }
+
     public int getErrorUrisCounter() {
         return errorCounter.size();
     }
 
+    public Set<Page> getPendingUris() {
+        return pendingUris;
+    }
+
     public int getPendingUrisCounter() {
         return pendingUris.size();
+    }
+
+    public Set<Page> getVisitedUris() {
+        return visitedUris;
     }
 
     public int getVisitedUrisCounter() {

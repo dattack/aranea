@@ -15,11 +15,19 @@
  */
 package com.dattack.aranea.crawler.web;
 
+import java.util.Set;
+
 /**
  * @author cvarela
  * @since 0.1
  */
 public interface CrawlerWebTaskControllerMBean {
+
+    Set<String> getVisitedUris(int start, int offset);
+
+    Set<String> getPendingUris(int start, int offset);
+
+    Set<String> getErrorUris(int start, int offset);
 
     int getVisitedUrisCounter();
 

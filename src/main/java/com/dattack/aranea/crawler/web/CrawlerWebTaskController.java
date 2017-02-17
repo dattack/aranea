@@ -106,6 +106,33 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         return taskStatus.getErrorUrisCounter();
     }
 
+    public Set<String> getErrorUris(final int start, final int offset) {
+
+        return getUriSubset(taskStatus.getErrorUris(), start, offset);
+    }
+
+    public Set<String> getPendingUris(final int start, final int offset) {
+
+        return getUriSubset(taskStatus.getPendingUris(), start, offset);
+    }
+
+    public Set<String> getVisitedUris(final int start, final int offset) {
+
+        return getUriSubset(taskStatus.getVisitedUris(), start, offset);
+    }
+
+    private Set<String> getUriSubset(final Set<Page> pages, final int start, final int offset) {
+
+        List<Page> pageList = new ArrayList<>(pages);
+
+        Set<String> set = new HashSet<>();
+        int index = start;
+        while (index < pages.size() && index < start + offset) {
+            set.add(pageList.get(index++).getUri().toString());
+        }
+        return set;
+    }
+
     @Override
     public int getPendingUrisCounter() {
         return taskStatus.getPendingUrisCounter();
