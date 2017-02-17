@@ -204,26 +204,28 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
         for (Element link : links) {
 
-            String uriAsText = null;
+            String linkHref = null;
             try {
 
-                String linkHref = link.attr(domSelectorBean.getAttribute());
-                if (StringUtils.isBlank(linkHref) || (exclude(linkHref, domSelectorBean.getExcludeList()))) {
+                linkHref = link.attr(domSelectorBean.getAttribute());
+                if (StringUtils.isBlank(linkHref) || pageStatus.getIgnoredLinks().contains(linkHref)
+                        || (exclude(linkHref, domSelectorBean.getExcludeLinksList()))) {
                     continue;
                 }
 
                 URI linkUri = page.getUri().resolve(linkHref);
-                uriAsText = linkUri.toString();
+                String uriAsText = linkUri.toString();
 
                 if (uriAsText.matches(domSelectorBean.getFilter())
-                        && !exclude(uriAsText, domSelectorBean.getExcludeList())) {
+                        && !exclude(uriAsText, domSelectorBean.getExcludeUrlList())) {
                     submitUri(pageStatus, uriAsText, page.getUri());
                 } else {
                     pageStatus.addIgnoredUri(linkUri);
                 }
 
             } catch (Throwable e) {
-                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", page.getUri(), uriAsText, e.getMessage());
+                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", page.getUri(), linkHref, e.getMessage());
+                pageStatus.addIgnoredLink(linkHref);
             }
         }
     }
@@ -258,12 +260,14 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         private final Set<URI> newUris;
         private final Set<URI> visitedUris;
         private final Set<URI> ignoredUris;
+        private final Set<String> ignoredLinks;
 
         public PageLinkParseStatus(final Page page) {
             this.page = page;
             this.newUris = new HashSet<>();
             this.visitedUris = new HashSet<>();
             this.ignoredUris = new HashSet<>();
+            this.ignoredLinks = new HashSet<>();
         }
 
         public void setFilename(final String filename) {
@@ -290,6 +294,10 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             this.ignoredUris.add(uri);
         }
 
+        public void addIgnoredLink(final String link) {
+            this.ignoredLinks.add(link);
+        }
+
         public Page getPage() {
             return page;
         }
@@ -304,6 +312,10 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
         public Set<URI> getIgnoredUris() {
             return ignoredUris;
+        }
+
+        public Set<String> getIgnoredLinks() {
+            return ignoredLinks;
         }
     }
 }

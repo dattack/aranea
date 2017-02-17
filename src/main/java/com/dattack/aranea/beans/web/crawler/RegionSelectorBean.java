@@ -41,11 +41,15 @@ public class RegionSelectorBean {
     @XmlAttribute(name = XmlTokens.FILTER, required = false)
     private String filter;
 
-    @XmlElement(name = XmlTokens.EXCLUDE, required = false)
-    private final List<ExcludeBean> excludeUrisList;
+    @XmlElement(name = XmlTokens.EXCLUDE_LINK, required = false)
+    private final List<ExcludeBean> excludeLinksList;
+    
+    @XmlElement(name = XmlTokens.EXCLUDE_URL, required = false)
+    private final List<ExcludeBean> excludeUrlsList;
 
     public RegionSelectorBean() {
-        this.excludeUrisList = new ArrayList<ExcludeBean>();
+        this.excludeLinksList = new ArrayList<ExcludeBean>();
+        this.excludeUrlsList = new ArrayList<ExcludeBean>();
     }
 
     public String getElement() {
@@ -63,8 +67,12 @@ public class RegionSelectorBean {
     public String getSelector() {
         return selector;
     }
+    
+    public List<ExcludeBean> getExcludeLinksList() {
+        return excludeLinksList;
+    }
 
-    public List<ExcludeBean> getExcludeList() {
-        return excludeUrisList;
+    public List<ExcludeBean> getExcludeUrlList() {
+        return excludeUrlsList;
     }
 }

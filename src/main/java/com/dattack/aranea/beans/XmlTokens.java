@@ -26,7 +26,8 @@ public final class XmlTokens {
     public static final String CRAWLER = "crawler";
     public static final String DATA_FILE = "datafile";
     public static final String ELEMENT = "element";
-    public static final String EXCLUDE = "exclude";
+    public static final String EXCLUDE_LINK = "exclude-link";
+    public static final String EXCLUDE_URL = "exclude-url";
     public static final String FILENAME_NOT_MATCHING_PATTERN = "filenameNotMatchingPattern";
     public static final String FILENAME_PATTERN = "filenamePattern";
     public static final String FILTER = "filter";
