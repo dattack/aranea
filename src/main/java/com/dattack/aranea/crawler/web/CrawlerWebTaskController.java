@@ -234,7 +234,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             String linkHref = null;
             try {
 
-                linkHref = link.attr(domSelectorBean.getAttribute());
+                linkHref = StringUtils.trimToEmpty(link.attr(domSelectorBean.getAttribute()));
                 if (StringUtils.isBlank(linkHref) || pageStatus.getIgnoredLinks().contains(linkHref)
                         || (exclude(linkHref, domSelectorBean.getExcludeLinksList()))) {
                     continue;
