@@ -16,6 +16,8 @@
 package com.dattack.aranea.crawler.web;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -57,10 +59,13 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     private final FilenameGenerator filenameGenerator;
     private final List<LinkNormalizer> linkNormalizers;
     private final CrawlerWebTaskStatus taskStatus;
-
+    private final Repository repository;
+    
+    
     public CrawlerWebTaskController(final WebBean sourceBean) {
 
         this.sourceBean = sourceBean;
+        this.repository = new Repository(sourceBean.getRepository());
         this.taskStatus = new CrawlerWebTaskStatus();
         this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean());
         this.executor = new ThreadPoolExecutor(getCrawlerBean().getThreadPoolSize(),
@@ -150,18 +155,19 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     void handle(final Page page, final Document doc) {
 
         try {
-            PageLinkParseStatus pageStatus = new PageLinkParseStatus(page);
+            PageInfo pageInfo = new PageInfo(page);
 
-            saveDocument(page, doc, pageStatus);
-            submitUrisFromDocument(doc, page, pageStatus);
+            saveDocument(doc, pageInfo);
+            submitUrisFromDocument(doc, pageInfo);
 
             taskStatus.registerAsVisited(page);
 
-            if (pageStatus.getNewUris().size() == 0 && taskStatus.getPendingUrisCounter() == 0) {
+            if (pageInfo.getNewUris().size() == 0 && taskStatus.getPendingUrisCounter() == 0) {
+                // TODO: review shutdown conditions
                 executor.shutdown();
             }
 
-            log.info("{} new URIs from {}", pageStatus.getNewUris().size(), page.getUri().toString());
+            log.info("{} new URIs from {}", pageInfo.getNewUris().size(), page.getUri().toString());
         } catch (IOException e) {
             relaunch(page);
         }
@@ -181,14 +187,14 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
     }
 
-    private void saveDocument(final Page page, final Document doc, final PageLinkParseStatus pageStatus)
+    private void saveDocument(final Document doc, final PageInfo pageInfo)
             throws IOException {
 
         try {
-            pageStatus.setFilename(filenameGenerator.getFilename(page.getUri()));
-            File file = new File(getSourceBean().getRepository(), pageStatus.getFilename());
-            FileUtils.writeStringToFile(file, doc.html());
-            log.debug("{} stored as {}", page.getUri().toString(), pageStatus.getFilename());
+            String filename = filenameGenerator.getFilename(pageInfo.getPage().getUri());
+            repository.write(filename, doc.html(), pageInfo);
+            
+            log.debug("{} stored as {}", pageInfo.getPage().getUri().toString(), filename);
         } catch (UnknownFilenameException e) {
             log.trace(e.getMessage());
         }
@@ -203,11 +209,12 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             }
             return false;
         } catch (Throwable t) {
+            t.printStackTrace();
             return false;
         }
     }
 
-    private void submitUrisFromDocument(final Document doc, final Page page, final PageLinkParseStatus pageStatus) {
+    private void submitUrisFromDocument(final Document doc, final PageInfo pageInfo) {
 
         for (RegionSelectorBean regionSelectorBean : getCrawlerBean().getRegionSelectorList()) {
 
@@ -215,17 +222,17 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
                 // scan only this area
                 Elements areas = doc.select(regionSelectorBean.getSelector());
                 for (Element element : areas) {
-                    submitUrisFromElement(element, page, regionSelectorBean, pageStatus);
+                    submitUrisFromElement(element, regionSelectorBean, pageInfo);
                 }
             } else {
                 // scan the full document
-                submitUrisFromElement(doc, page, regionSelectorBean, pageStatus);
+                submitUrisFromElement(doc, regionSelectorBean, pageInfo);
             }
         }
     }
 
-    private void submitUrisFromElement(final Element element, final Page page, final RegionSelectorBean domSelectorBean,
-            final PageLinkParseStatus pageStatus) {
+    private void submitUrisFromElement(final Element element, final RegionSelectorBean domSelectorBean,
+            final PageInfo pageInfo) {
 
         Elements links = element.select(domSelectorBean.getElement());
 
@@ -235,38 +242,38 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             try {
 
                 linkHref = StringUtils.trimToEmpty(link.attr(domSelectorBean.getAttribute()));
-                if (StringUtils.isBlank(linkHref) || pageStatus.getIgnoredLinks().contains(linkHref)
+                if (StringUtils.isBlank(linkHref) || pageInfo.getIgnoredLinks().contains(linkHref)
                         || (exclude(linkHref, domSelectorBean.getExcludeLinksList()))) {
                     continue;
                 }
 
-                URI linkUri = page.getUri().resolve(linkHref);
+                URI linkUri = pageInfo.getPage().getUri().resolve(linkHref);
                 String uriAsText = linkUri.toString();
 
                 if (uriAsText.matches(domSelectorBean.getFilter())
                         && !exclude(uriAsText, domSelectorBean.getExcludeUrlList())) {
-                    submitUri(pageStatus, uriAsText, page.getUri());
+                    submitUri(pageInfo, uriAsText, pageInfo.getPage().getUri());
                 } else {
-                    pageStatus.addIgnoredUri(linkUri);
+                    pageInfo.addIgnoredUri(linkUri);
                 }
 
             } catch (Throwable e) {
-                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", page.getUri(), linkHref, e.getMessage());
-                pageStatus.addIgnoredLink(linkHref);
+                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", pageInfo.getPage().getUri(), linkHref, e.getMessage());
+                pageInfo.addIgnoredLink(linkHref);
             }
         }
     }
 
-    private void submitUri(final PageLinkParseStatus pageStatus, final String uriAsText, final URI referer)
+    private void submitUri(final PageInfo pageInfo, final String uriAsText, final URI referer)
             throws URISyntaxException {
 
         URI normalizedURI = new URI(normalizeUri(uriAsText));
 
-        if (!pageStatus.isDuplicatedLink(normalizedURI)) {
+        if (!pageInfo.isDuplicatedLink(normalizedURI)) {
             if (submit(new Page(normalizedURI, referer))) {
-                pageStatus.addNewUri(normalizedURI);
+                pageInfo.addNewUri(normalizedURI);
             } else {
-                pageStatus.addVisitedUri(normalizedURI);
+                pageInfo.addVisitedUri(normalizedURI);
             }
         }
     }
@@ -278,71 +285,5 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             normalizedUri = normalizer.normalize(normalizedUri);
         }
         return normalizedUri;
-    }
-
-    private class PageLinkParseStatus {
-
-        private final Page page;
-        private String filename;
-        private final Set<URI> newUris;
-        private final Set<URI> visitedUris;
-        private final Set<URI> ignoredUris;
-        private final Set<String> ignoredLinks;
-
-        public PageLinkParseStatus(final Page page) {
-            this.page = page;
-            this.newUris = new HashSet<>();
-            this.visitedUris = new HashSet<>();
-            this.ignoredUris = new HashSet<>();
-            this.ignoredLinks = new HashSet<>();
-        }
-
-        public void setFilename(final String filename) {
-            this.filename = filename;
-        }
-
-        public String getFilename() {
-            return filename;
-        }
-
-        public boolean isDuplicatedLink(final URI uri) {
-            return newUris.contains(uri) || visitedUris.contains(uri);
-        }
-
-        public void addNewUri(final URI uri) {
-            this.newUris.add(uri);
-        }
-
-        public void addVisitedUri(final URI uri) {
-            this.visitedUris.add(uri);
-        }
-
-        public void addIgnoredUri(final URI uri) {
-            this.ignoredUris.add(uri);
-        }
-
-        public void addIgnoredLink(final String link) {
-            this.ignoredLinks.add(link);
-        }
-
-        public Page getPage() {
-            return page;
-        }
-
-        public Set<URI> getNewUris() {
-            return newUris;
-        }
-
-        public Set<URI> getVisitedUris() {
-            return visitedUris;
-        }
-
-        public Set<URI> getIgnoredUris() {
-            return ignoredUris;
-        }
-
-        public Set<String> getIgnoredLinks() {
-            return ignoredLinks;
-        }
     }
 }
