@@ -25,24 +25,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * @author carlos
- *
+ * @author cvarela
+ * @since 0.1
  */
 public class Repository {
 
     private static final Logger log = LoggerFactory.getLogger(Repository.class);
-    
+
     private static final String CRAWLER_PATTERN_NAME = "crawler_%d.log";
 
-    private File path;
+    private final File path;
     private volatile CrawlerLog crawlerLog;
 
     public Repository(final String path) {
         this.path = new File(path);
     }
-    
+
     private CrawlerLog getCrawlerLog() throws FileNotFoundException {
-        
+
         if (crawlerLog == null) {
             synchronized (this) {
                 if (crawlerLog == null) {
@@ -55,10 +55,12 @@ public class Repository {
     }
 
     public void write(final String filename, final String data, final PageInfo pageInfo) throws IOException {
-        
-        FileUtils.writeStringToFile(new File(path, filename), data);
-        log.debug("{} stored as {}", pageInfo.getPage().getUri().toString(), filename);
-        
+
+        if (filename != null) {
+            FileUtils.writeStringToFile(new File(path, filename), data);
+            log.debug("{} stored as {}", pageInfo.getPage().getUri().toString(), filename);
+        }
+
         getCrawlerLog().write(pageInfo);
     }
 }

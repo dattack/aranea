@@ -18,6 +18,7 @@ package com.dattack.aranea.crawler.web;
 import org.apache.commons.lang.StringUtils;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,39 +30,43 @@ import com.dattack.aranea.util.ThreadUtil;
  */
 class CrawlerWebTask implements Runnable {
 
-	private static final Logger log = LoggerFactory.getLogger(CrawlerWebTask.class);
+    private static final Logger log = LoggerFactory.getLogger(CrawlerWebTask.class);
 
-	private final Page page;
-	private final CrawlerWebTaskController controller;
+    private final Page page;
+    private final CrawlerWebTaskController controller;
 
-	public CrawlerWebTask(final Page page, final CrawlerWebTaskController controller) {
-		this.page = page;
-		this.controller = controller;
-	}
+    public CrawlerWebTask(final Page page, final CrawlerWebTaskController controller) {
+        this.page = page;
+        this.controller = controller;
+    }
 
-	@Override
-	public void run() {
+    private Connection prepareConnection() {
 
-		ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
+        final Connection connection = Jsoup //
+                .connect(page.getUri().toString()) //
+                .followRedirects(true) //
+                .timeout(controller.getTimeout());
 
-		log.info("GET {}", page.getUri());
+        if (StringUtils.isNotBlank(controller.getSourceBean().getCrawler().getUserAgent())) {
+            connection.userAgent(controller.getSourceBean().getCrawler().getUserAgent());
+        }
+        return connection;
+    }
 
-		try {
-			Connection connection = prepareConnection();
-			controller.handle(page, connection.get());
-		} catch (Throwable t) {
-			log.warn("Crawler error {} (Referer: {}): {}", page.getUri(), page.getReferer(), t.getMessage());
-			controller.relaunch(page);
-		}
-	}
-	
-	private Connection prepareConnection() {
-		
-		Connection connection = Jsoup.connect(page.getUri().toString()).timeout(controller.getTimeout());
+    @Override
+    public void run() {
 
-		if (StringUtils.isNotBlank(controller.getSourceBean().getCrawler().getUserAgent())) {
-			connection.userAgent(controller.getSourceBean().getCrawler().getUserAgent());
-		}
-		return connection;
-	}
+        ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
+
+        log.info("GET {}", page.getUri());
+
+        try {
+            final Connection connection = prepareConnection();
+            final Document document = connection.get();
+            controller.handle(new PageInfo(page, connection.response()), document);
+        } catch (final Throwable t) {
+            log.warn("Crawler error {} (Referer: {}): {}", page.getUri(), page.getReferer(), t.getMessage());
+            controller.relaunch(page);
+        }
+    }
 }

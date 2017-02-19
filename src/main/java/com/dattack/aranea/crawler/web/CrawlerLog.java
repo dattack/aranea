@@ -35,10 +35,17 @@ public class CrawlerLog {
 
     public void write(final PageInfo pageInfo) throws IOException {
 
-        StringBuilder builder = new StringBuilder() //
+        final StringBuilder builder = new StringBuilder() //
                 .append(ObjectUtils.toString(pageInfo.getPage().getReferer())) //
                 .append("\t") //
                 .append(ObjectUtils.toString(pageInfo.getPage().getUri())) //
+                .append("\t").append(pageInfo.getStatusCode()) //
+                .append("\t").append(pageInfo.getStatusMessage()) //
+                .append("\t").append(pageInfo.getCharset()) //
+                .append("\t").append(pageInfo.getContentType()) //
+                .append("\t").append(pageInfo.getNewUris().size()) //
+                .append("\t").append(pageInfo.getVisitedUris().size()) //
+                .append("\t").append(pageInfo.getIgnoredLinks().size() + pageInfo.getIgnoredUris().size()) //
                 .append("\n");
 
         IOUtils.write(builder.toString(), outputStream);

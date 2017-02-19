@@ -51,16 +51,27 @@ public class FilenameGenerator {
         }
     }
 
-    private String getHashFilename(final URI uri) throws UnknownFilenameException {
+    public String getFilename(final URI uri) {
 
-        BaseConfiguration configuration = new BaseConfiguration();
+        final String hash = getHashFilename(uri);
+        if (hash != null) {
+            if (StorageBean.TREE_LAYOUT.equalsIgnoreCase(StringUtils.trimToEmpty(storageBean.getLayout()))) {
+                return getHashTreePath(hash);
+            }
+        }
+        return hash;
+    }
 
-        String uriAsText = uri.toString();
+    private String getHashFilename(final URI uri) {
+
+        final BaseConfiguration configuration = new BaseConfiguration();
+
+        final String uriAsText = uri.toString();
 
         String filenamePattern = storageBean.getFilenamePattern();
         if (urlRegExPattern != null) {
 
-            Matcher matcher = urlRegExPattern.matcher(uriAsText);
+            final Matcher matcher = urlRegExPattern.matcher(uriAsText);
 
             if (matcher.matches()) {
                 for (int i = 0; i <= matcher.groupCount(); i++) {
@@ -69,8 +80,7 @@ public class FilenameGenerator {
             } else {
                 if (!storageBean.isStoreNotMatching()) {
                     // not store this file
-                    throw new UnknownFilenameException(
-                            String.format("Unable to generate a filename for %s", uriAsText));
+                    throw null;
                 }
 
                 if (StringUtils.isNotBlank(storageBean.getFilenameNotMatchingPattern())) {
@@ -82,7 +92,7 @@ public class FilenameGenerator {
         if (filenamePattern.contains(HASH_KEY_VARIABLE)) {
             try {
                 configuration.setProperty(HASH_KEY, HashUtil.md5(uriAsText));
-            } catch (NoSuchAlgorithmException e) {
+            } catch (final NoSuchAlgorithmException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -92,13 +102,13 @@ public class FilenameGenerator {
 
     private String getHashTreePath(final String hash) {
 
-        int index = hash.lastIndexOf(".");
+        final int index = hash.lastIndexOf(".");
         if (index <= 2 * TREE_SUBDIRECTORIES) {
             // force plain layout
             return hash;
         }
 
-        StringBuilder sb = new StringBuilder();
+        final StringBuilder sb = new StringBuilder();
 
         String text = hash;
         for (int i = 0; i < TREE_SUBDIRECTORIES; i++) {
@@ -108,16 +118,5 @@ public class FilenameGenerator {
         sb.append(text);
 
         return sb.toString();
-    }
-
-    public String getFilename(final URI uri) throws UnknownFilenameException {
-
-        String hash = getHashFilename(uri);
-        if (hash != null) {
-            if (StorageBean.TREE_LAYOUT.equalsIgnoreCase(StringUtils.trimToEmpty(storageBean.getLayout()))) {
-                return getHashTreePath(hash);
-            }
-        }
-        return hash;
     }
 }

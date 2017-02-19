@@ -19,63 +19,100 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.jsoup.Connection.Response;
+
 /**
- * @author carlos
- *
+ * @author cvarela
+ * @since 0.1
  */
 public class PageInfo {
 
     private final Page page;
+    private final int statusCode;
+    private final String statusMessage;
+    private final String charset;
+    private final String contentType;
     private final Set<URI> newUris;
     private final Set<URI> visitedUris;
     private final Set<URI> ignoredUris;
     private final Set<String> ignoredLinks;
 
-    public PageInfo(final Page page) {
+    public PageInfo(final Page page, final Response response) {
         this.page = page;
+        this.statusCode = response.statusCode();
+        this.statusMessage = response.statusMessage();
+        this.charset = response.charset();
+        this.contentType = response.contentType();
         this.newUris = new HashSet<>();
         this.visitedUris = new HashSet<>();
         this.ignoredUris = new HashSet<>();
         this.ignoredLinks = new HashSet<>();
     }
 
-    public boolean isDuplicatedLink(final URI uri) {
-        return newUris.contains(uri) || visitedUris.contains(uri);
-    }
-
-    public void addNewUri(final URI uri) {
-        this.newUris.add(uri);
-    }
-
-    public void addVisitedUri(final URI uri) {
-        this.visitedUris.add(uri);
+    public void addIgnoredLink(final String link) {
+        if (link != null) {
+            this.ignoredLinks.add(link);
+        }
     }
 
     public void addIgnoredUri(final URI uri) {
-        this.ignoredUris.add(uri);
+        if (uri != null) {
+            this.ignoredUris.add(uri);
+        }
     }
 
-    public void addIgnoredLink(final String link) {
-        this.ignoredLinks.add(link);
+    public void addNewUri(final URI uri) {
+        if (uri != null) {
+            this.newUris.add(uri);
+        }
     }
 
-    public Page getPage() {
-        return page;
+    public void addVisitedUri(final URI uri) {
+        if (uri != null) {
+            this.visitedUris.add(uri);
+        }
     }
 
-    public Set<URI> getNewUris() {
-        return newUris;
+    public String getCharset() {
+        return charset;
     }
 
-    public Set<URI> getVisitedUris() {
-        return visitedUris;
+    public String getContentType() {
+        return contentType;
+    }
+
+    public Set<String> getIgnoredLinks() {
+        return ignoredLinks;
     }
 
     public Set<URI> getIgnoredUris() {
         return ignoredUris;
     }
 
-    public Set<String> getIgnoredLinks() {
-        return ignoredLinks;
+    public Set<URI> getNewUris() {
+        return newUris;
+    }
+
+    public Page getPage() {
+        return page;
+    }
+
+    public int getStatusCode() {
+        return statusCode;
+    }
+
+    public String getStatusMessage() {
+        return statusMessage;
+    }
+
+    public Set<URI> getVisitedUris() {
+        return visitedUris;
+    }
+
+    public boolean isDuplicatedLink(final URI uri) {
+        if (uri == null) {
+            return true;
+        }
+        return newUris.contains(uri) || visitedUris.contains(uri);
     }
 }
