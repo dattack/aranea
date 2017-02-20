@@ -26,6 +26,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.commons.configuration.PropertyConverter;
 import org.apache.commons.lang.StringUtils;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -37,8 +39,10 @@ import com.dattack.aranea.beans.web.WebBean;
 import com.dattack.aranea.beans.web.crawler.CrawlerBean;
 import com.dattack.aranea.beans.web.crawler.ExcludeBean;
 import com.dattack.aranea.beans.web.crawler.RegionSelectorBean;
+import com.dattack.aranea.beans.web.crawler.SeedBean;
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
 import com.dattack.aranea.util.NamedThreadFactory;
+import com.dattack.aranea.util.WebTaskUtil;
 
 /**
  * @author cvarela
@@ -223,6 +227,11 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
     private void submitUrisFromDocument(final Document doc, final PageInfo pageInfo) {
 
+        // eval all variables, if one is present
+        BaseConfiguration configuration = new BaseConfiguration();
+        WebTaskUtil.populateVars(doc, getCrawlerBean().getVarBeanList(), configuration);
+
+        // retrieve all document links
         for (final RegionSelectorBean regionSelectorBean : getCrawlerBean().getRegionSelectorList()) {
 
             if (regionSelectorBean.getSelector() != null) {
@@ -234,6 +243,30 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             } else {
                 // scan the full document
                 submitUrisFromElement(doc, regionSelectorBean, pageInfo);
+            }
+        }
+
+        seedUrlsFromDocument(configuration, pageInfo);
+    }
+
+    private void seedUrlsFromDocument(final BaseConfiguration configuration, final PageInfo pageInfo) {
+
+        // generate new links
+        for (SeedBean seedBean : getCrawlerBean().getSeedBeanList()) {
+
+            String link = seedBean.getUrl(); 
+            try {
+
+                link = PropertyConverter.interpolate(seedBean.getUrl(), configuration).toString();
+                
+                log.info("Seeding URL: {}", link);
+                final URI seedUri = pageInfo.getPage().getUri().resolve(link);
+
+                submitUri(pageInfo, seedUri.toString(), pageInfo.getPage().getUri());
+
+            } catch (final Throwable e) {
+                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", pageInfo.getPage().getUri(), link,
+                        e.getMessage());
             }
         }
     }

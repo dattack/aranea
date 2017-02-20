@@ -22,6 +22,7 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 
 import com.dattack.aranea.beans.XmlTokens;
+import com.dattack.aranea.beans.web.VarBean;
 
 /**
  * @author cvarela
@@ -55,9 +56,17 @@ public class CrawlerBean {
 
     @XmlAttribute(name = XmlTokens.USER_AGENT, required = false)
     private String userAgent;
+    
+    @XmlElement(name = XmlTokens.VAR, required = false)
+    private final List<VarBean> varBeanList;
+    
+    @XmlElement(name = XmlTokens.SEED, required = false)
+    private final List<SeedBean> seedBeanList;
 
     public CrawlerBean() {
         this.regionSelectorList = new ArrayList<>();
+        this.varBeanList = new ArrayList<VarBean>();
+        this.seedBeanList = new ArrayList<SeedBean>();
         this.homeList = new ArrayList<>();
         this.normalizerList = new ArrayList<>();
         this.timeout = DEFAULT_TIMEOUT;
@@ -94,6 +103,14 @@ public class CrawlerBean {
 
     public String getUserAgent() {
         return userAgent;
+    }
+    
+    public List<VarBean> getVarBeanList() {
+        return varBeanList;
+    }
+    
+    public List<SeedBean> getSeedBeanList() {
+        return seedBeanList;
     }
 
     @Override

@@ -28,7 +28,8 @@ import org.jsoup.select.Elements;
 
 import com.dattack.aranea.beans.web.parser.MetadataBean;
 import com.dattack.aranea.beans.web.parser.MetadataItemBean;
-import com.dattack.aranea.beans.web.parser.VarBean;
+import com.dattack.aranea.util.JsoupUtil;
+import com.dattack.aranea.util.WebTaskUtil;
 
 /**
  * @author cvarela
@@ -61,30 +62,28 @@ final class DataExtractor {
         return lookup(doc, columnBean, new BaseConfiguration());
     }
 
-
     private Object lookup(final Element doc, final MetadataItemBean columnBean, final BaseConfiguration configuration) {
 
         Elements elements = doc
                 .select(PropertyConverter.interpolate(columnBean.getSelector(), configuration).toString());
-        
+
         if (columnBean.getIndex() >= 0 && elements.size() > columnBean.getIndex()) {
-            
+
             Element element = elements.get(columnBean.getIndex());
             elements = new Elements();
             elements.add(element);
         }
-        
 
         if (elements != null) {
 
             if (elements.size() > 1 || !columnBean.getChilldItemList().isEmpty()) {
                 final List<Object> values = new ArrayList<Object>();
                 for (Element elem : elements) {
-                    String elementValue = getElementValue(elem, columnBean.getValue());
+                    String elementValue = JsoupUtil.getElementValue(elem, columnBean.getValue());
                     if (!columnBean.getChilldItemList().isEmpty()) {
 
-                        configuration.setProperty(columnBean.getName(), elementValue);                        
-                        populateVars(elem, columnBean.getVarBeanList(), configuration);
+                        configuration.setProperty(columnBean.getName(), elementValue);
+                        WebTaskUtil.populateVars(elem, columnBean.getVarBeanList(), configuration);
 
                         Map<String, Object> childMap = new HashMap<String, Object>();
                         for (MetadataItemBean childItem : columnBean.getChilldItemList()) {
@@ -102,47 +101,12 @@ final class DataExtractor {
 
             String value = null;
             if (elements.size() == 1) {
-                value = getElementValue(elements.get(0), columnBean.getValue());
+                value = JsoupUtil.getElementValue(elements.get(0), columnBean.getValue());
             }
             return value;
         }
 
         // element not found
         return null;
-    }
-
-    private void populateVars(final Element elem, final List<VarBean> varBeanList,
-            final BaseConfiguration configuration) {
-
-        for (VarBean varBean : varBeanList) {
-
-            Elements varElements = elem
-                    .select(PropertyConverter.interpolate(varBean.getSelector(), configuration).toString());
-            
-            if (varElements != null) {
-                
-                configuration.setProperty(varBean.getName(), getElementValue(varElements.get(0), varBean.getValue()));
-            }
-        }
-    }
-
-    private String getElementValue(final Element element, final String expression) {
-
-        if (expression != null) {
-            if (expression.startsWith("attr:")) {
-                String attributeKey = "src";
-                String[] tokens = expression.split(":");
-                if (tokens.length > 1) {
-                    attributeKey = tokens[1];
-                }
-                return element.attr(attributeKey);
-            } else if (expression.equalsIgnoreCase("html")) {
-                return element.html();
-            } else if (expression.equalsIgnoreCase("data")) {
-                return element.data();
-            }
-        }
-        
-        return element.text();
     }
 }

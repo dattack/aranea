@@ -41,11 +41,12 @@ public class Repository {
         this.path = new File(path);
     }
 
-    private CrawlerLog getCrawlerLog() throws FileNotFoundException {
+    private CrawlerLog getCrawlerLog() throws IOException {
 
         if (crawlerLog == null) {
             synchronized (this) {
                 if (crawlerLog == null) {
+                    FileUtils.forceMkdir(path);
                     final String crawlerFilename = String.format(CRAWLER_PATTERN_NAME, System.currentTimeMillis());
                     this.crawlerLog = new CrawlerLog(new FileOutputStream(new File(path, crawlerFilename)));
                 }

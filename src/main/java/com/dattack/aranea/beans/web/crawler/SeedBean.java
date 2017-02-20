@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Dattack team (http://www.dattack.com)
+ * Copyright (c) 2017, The Dattack team (http://www.dattack.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.beans.web.parser;
+package com.dattack.aranea.beans.web.crawler;
 
 import javax.xml.bind.annotation.XmlAttribute;
 
@@ -23,26 +23,19 @@ import com.dattack.aranea.beans.XmlTokens;
  * @author cvarela
  * @since 0.1
  */
-public class VarBean {
-    
-    @XmlAttribute(name = XmlTokens.SELECTOR, required = true)
-    private String selector;
+public class SeedBean {
 
-    @XmlAttribute(name = XmlTokens.NAME, required = true)
-    private String name;
+    @XmlAttribute(name = XmlTokens.CONDITION, required = false)
+    private String condition;
     
-    @XmlAttribute(name = XmlTokens.VALUE, required = true)
-    private String value;
+    @XmlAttribute(name = XmlTokens.URL, required = true)
+    private String url;
     
-    public String getSelector() {
-        return selector;
+    public String getCondition() {
+        return condition;
     }
     
-    public String getName() {
-        return name;
-    }
-    
-    public String getValue() {
-        return value;
+    public String getUrl() {
+        return url;
     }
 }
