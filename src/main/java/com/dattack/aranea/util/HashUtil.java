@@ -29,14 +29,38 @@ public class HashUtil {
     }
 
     public static String md5(final String text) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("MD5");
-        md.update(text.getBytes());
-        byte[] mdbytes = md.digest();
+        return hash(text, MessageDigest.getInstance("MD5"));
+    }
+
+    public static String sha1(final String text) throws NoSuchAlgorithmException {
+        return hash(text, MessageDigest.getInstance("SHA1"));
+    }
+
+    public static String sha256(final String text) throws NoSuchAlgorithmException {
+        return hash(text, MessageDigest.getInstance("SHA-256"));
+    }
+
+    private static String hash(final String input, final MessageDigest mDigest) {
+
+        byte[] result = mDigest.digest(input.getBytes());
 
         StringBuffer hash = new StringBuffer();
-        for (int i = 0; i < mdbytes.length; i++) {
-            hash.append(Integer.toString((mdbytes[i] & 0xff) + 0x100, 16).substring(1));
+        for (int i = 0; i < result.length; i++) {
+            hash.append(Integer.toString((result[i] & 0xff) + 0x100, 16).substring(1));
         }
+
         return hash.toString();
+    }
+
+    public static void main(String[] args) {
+
+        String url = "http://zalando.es";
+        try {
+            System.out.format("MD5: %s%n", HashUtil.md5(url));
+            System.out.format("SHA-1: %s%n", HashUtil.sha1(url));
+            System.out.format("SHA-256: %s%n", HashUtil.sha256(url));
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
     }
 }
