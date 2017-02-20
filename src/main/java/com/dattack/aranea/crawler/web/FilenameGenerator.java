@@ -80,7 +80,7 @@ public class FilenameGenerator {
             } else {
                 if (!storageBean.isStoreNotMatching()) {
                     // not store this file
-                    throw null;
+                    return null;
                 }
 
                 if (StringUtils.isNotBlank(storageBean.getFilenameNotMatchingPattern())) {
