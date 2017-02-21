@@ -10,9 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.parser;
-
-import javax.xml.bind.JAXBException;
+package com.dattack.aranea.cli;
 
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
@@ -22,18 +20,39 @@ import com.dattack.aranea.beans.AbstractTaskBean;
 import com.dattack.aranea.beans.AraneaBean;
 import com.dattack.aranea.beans.web.WebBean;
 import com.dattack.aranea.beans.web.parser.AraneaParser;
-import com.dattack.aranea.parser.web.ParserEngine;
+import com.dattack.aranea.engine.web.crawler.CrawlerWebEngine;
 import com.dattack.aranea.util.CommandLine;
 
 /**
+ * The main client used to execute the crawler bot.
+ * 
  * @author cvarela
  * @since 0.1
  */
-public final class ParserClient {
+public final class CrawlerClient {
 
-    private static final Logger log = LoggerFactory.getLogger(ParserClient.class);
+    private static final Logger log = LoggerFactory.getLogger(CrawlerClient.class);
+
+    private static void execute(final String xmlConfigurationFilename, final String sourceName) throws Exception {
+
+        AraneaBean araneaBean = AraneaParser.parse(xmlConfigurationFilename);
+
+        CrawlerWebEngine crawlerEngine = new CrawlerWebEngine();
+
+        for (AbstractTaskBean sourceBean : araneaBean.getTaskList()) {
+
+            if (sourceName == null || sourceName.equalsIgnoreCase(sourceBean.getId())) {
+                log.info("Starting source '{}'", sourceBean.getId());
+
+                if (sourceBean instanceof WebBean) {
+                    crawlerEngine.submit((WebBean) sourceBean);
+                }
+            }
+        }
+    }
 
     public static void main(final String[] args) {
+
         try {
 
             CommandLine commandLine = new CommandLine(args);
@@ -41,34 +60,17 @@ public final class ParserClient {
             final String sourceName = commandLine.nextArg();
 
             if (StringUtils.isBlank(configurationFilename)) {
-                System.err.println("Usage: ParserClient <configuration_file> [<source_name>]");
+                System.err.println("Usage: CrawlerClient <configuration_file> [<source_name>]");
             } else {
                 execute(configurationFilename, sourceName);
             }
 
         } catch (final Throwable e) {
-            log.error(e.getMessage());
+            log.error(e.getMessage(), e);
         }
     }
 
-    private ParserClient() {
+    private CrawlerClient() {
         // Main class
-    }
-
-    private static void execute(final String xmlConfigurationFilename, final String sourceName) throws JAXBException {
-
-        AraneaBean araneaBean = AraneaParser.parse(xmlConfigurationFilename);
-
-        ParserEngine parserEngine = new ParserEngine();
-        for (AbstractTaskBean sourceBean : araneaBean.getTaskList()) {
-
-            if (sourceBean instanceof WebBean) {
-                if ((sourceName != null) && !sourceName.equalsIgnoreCase(sourceBean.getId())) {
-                    continue;
-                }
-                log.info(sourceBean.toString());
-                parserEngine.execute((WebBean) sourceBean);
-            }
-        }
     }
 }
