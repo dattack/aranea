@@ -163,10 +163,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
             final String filename = filenameGenerator.getFilename(pageInfo.getPage().getUri());
             repository.write(filename, doc.html(), pageInfo);
 
-            if (pageInfo.getNewUris().size() == 0 && taskStatus.getPendingUrisCounter() == 0) {
-                // TODO: review shutdown conditions
-                executor.shutdown();
-            }
+            tryShutdown();
 
             log.info("{} new URIs from {}", pageInfo.getNewUris().size(), pageInfo.getPage().getUri().toString());
         } catch (final IOException e) {
@@ -182,6 +179,13 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
         return normalizedUri;
     }
+    
+    private void tryShutdown() {
+        if (taskStatus.getPendingUrisCounter() == 0) {
+            // TODO: review shutdown conditions
+            executor.shutdown();
+        }
+    }
 
     /**
      * Relaunch a failed page.
@@ -194,6 +198,8 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         final int counter = taskStatus.relaunch(page);
         if (counter < MAX_ERRORS) {
             submit(page);
+        } else {
+            tryShutdown();
         }
     }
 
