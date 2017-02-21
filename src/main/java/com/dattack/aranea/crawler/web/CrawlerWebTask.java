@@ -15,8 +15,11 @@
  */
 package com.dattack.aranea.crawler.web;
 
+import java.io.IOException;
+
 import org.apache.commons.lang.StringUtils;
 import org.jsoup.Connection;
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
@@ -61,12 +64,22 @@ class CrawlerWebTask implements Runnable {
         log.info("GET {}", page.getUri());
 
         try {
-            final Connection connection = prepareConnection();
+
+            Connection connection = prepareConnection();
             final Document document = connection.get();
             controller.handle(new PageInfo(page, connection.response()), document);
-        } catch (final Throwable t) {
-            log.warn("Crawler error {} (Referer: {}): {}", page.getUri(), page.getReferer(), t.getMessage());
-            controller.relaunch(page);
+
+        } catch (final HttpStatusException e) {
+
+            log.warn("[{}] {}: {} (Referer: {})", e.getStatusCode(), e.getMessage(), page.getUri(), page.getReferer());
+            PageInfo pageInfo = new PageInfo(page, e.getStatusCode(), e.getMessage());
+            controller.relaunch(pageInfo);
+
+        } catch (IOException e) {
+
+            log.warn("{}: {} (Referer: {})", e.getMessage(), page.getUri(), page.getReferer());
+            PageInfo pageInfo = new PageInfo(page, e.getMessage());
+            controller.fail(pageInfo);
         }
     }
 }

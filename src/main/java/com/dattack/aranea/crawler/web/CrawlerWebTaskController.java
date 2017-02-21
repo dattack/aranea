@@ -75,7 +75,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
         this.sourceBean = sourceBean;
         this.repository = new Repository(sourceBean.getRepository());
-        this.taskStatus = new CrawlerWebTaskStatus();
+        this.taskStatus = new CrawlerWebTaskStatus(MAX_ERRORS);
         this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean());
         this.executor = new ThreadPoolExecutor(getCrawlerBean().getThreadPoolSize(),
                 getCrawlerBean().getThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue<Runnable>(),
@@ -167,7 +167,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
             log.info("{} new URIs from {}", pageInfo.getNewUris().size(), pageInfo.getPage().getUri().toString());
         } catch (final IOException e) {
-            relaunch(pageInfo.getPage());
+            relaunch(pageInfo);
         }
     }
 
@@ -179,12 +179,17 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
         return normalizedUri;
     }
-    
+
     private void tryShutdown() {
         if (taskStatus.getPendingUrisCounter() == 0) {
-            // TODO: review shutdown conditions
             executor.shutdown();
         }
+    }
+
+    void fail(final PageInfo pageInfo) {
+
+        taskStatus.fail(pageInfo);
+        tryShutdown();
     }
 
     /**
@@ -193,11 +198,11 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
      * @param uri
      *            the page to crawl.
      */
-    void relaunch(final Page page) {
+    void relaunch(final PageInfo pageInfo) {
 
-        final int counter = taskStatus.relaunch(page);
-        if (counter < MAX_ERRORS) {
-            submit(page);
+        final boolean relaunch = taskStatus.relaunch(pageInfo);
+        if (relaunch) {
+            submit(pageInfo.getPage());
         } else {
             tryShutdown();
         }
@@ -260,11 +265,11 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         // generate new links
         for (SeedBean seedBean : getCrawlerBean().getSeedBeanList()) {
 
-            String link = seedBean.getUrl(); 
+            String link = seedBean.getUrl();
             try {
 
                 link = PropertyConverter.interpolate(seedBean.getUrl(), configuration).toString();
-                
+
                 log.info("Seeding URL: {}", link);
                 final URI seedUri = pageInfo.getPage().getUri().resolve(link);
 

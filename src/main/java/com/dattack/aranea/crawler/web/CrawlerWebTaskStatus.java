@@ -20,17 +20,21 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.http.HttpStatus;
+
 /**
  * @author cvarela
  * @since 0.1
  */
 class CrawlerWebTaskStatus {
 
+    private final int maxErrors;
     private final Set<Page> pendingUris;
     private final Set<Page> visitedUris;
     private final Map<Page, Short> errorCounter;
 
-    protected CrawlerWebTaskStatus() {
+    protected CrawlerWebTaskStatus(final int maxErrors) {
+        this.maxErrors = maxErrors;
         this.pendingUris = new HashSet<Page>();
         this.visitedUris = new HashSet<Page>();
         this.errorCounter = new HashMap<Page, Short>();
@@ -49,17 +53,36 @@ class CrawlerWebTaskStatus {
         return counter;
     }
 
+    /*
+     * Mark a page as visited.
+     */
     void registerAsVisited(final Page page) {
         this.visitedUris.add(page);
         this.pendingUris.remove(page);
         errorCounter.remove(page);
     }
 
-    int relaunch(final Page page) {
+    void fail(final PageInfo pageInfo) {
+        errorCounter.remove(pageInfo.getPage());
+        pendingUris.remove(pageInfo.getPage());
+    }
 
-        int counter = incrErrorCounter(page);
-        pendingUris.remove(page);
-        return counter;
+    boolean relaunch(final PageInfo pageInfo) {
+
+        boolean relaunch = pageInfo.getStatusCode() != HttpStatus.SC_NOT_FOUND;
+
+        if (relaunch) {
+            int counter = incrErrorCounter(pageInfo.getPage());
+            relaunch &= counter < maxErrors;
+        }
+
+        if (!relaunch) {
+            fail(pageInfo);
+        } else {
+            pendingUris.remove(pageInfo.getPage());
+        }
+
+        return relaunch;
     }
 
     boolean submit(final Page uri) {

@@ -49,6 +49,22 @@ public class PageInfo {
         this.ignoredLinks = new HashSet<>();
     }
 
+    public PageInfo(final Page page, final String message) {
+        this(page, -1, message);
+    }
+
+    public PageInfo(final Page page, final int statusCode, final String message) {
+        this.page = page;
+        this.statusCode = statusCode;
+        this.statusMessage = message;
+        this.charset = "";
+        this.contentType = "";
+        this.newUris = new HashSet<>();
+        this.visitedUris = new HashSet<>();
+        this.ignoredUris = new HashSet<>();
+        this.ignoredLinks = new HashSet<>();
+    }
+
     public void addIgnoredLink(final String link) {
         if (link != null) {
             this.ignoredLinks.add(link);
