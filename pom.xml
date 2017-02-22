@@ -67,7 +67,7 @@
 		<httpclient.version>4.3.1</httpclient.version>
 		<jsoup.version>1.7.3</jsoup.version>
 		<commons-io.version>2.4</commons-io.version>
-		<commons-configuration.version>1.10</commons-configuration.version>
+		<jtoolbox-commons-configuration.version>0.1-SNAPSHOT</jtoolbox-commons-configuration.version>
 		<slf4j-log4j12.version>1.7.5</slf4j-log4j12.version>
 		<json.version>20160212</json.version>
 	</properties>
@@ -79,9 +79,9 @@
 			<version>${commons-io.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>commons-configuration</groupId>
-			<artifactId>commons-configuration</artifactId>
-			<version>${commons-configuration.version}</version>
+			<groupId>com.dattack</groupId>
+			<artifactId>jtoolbox-commons-configuration</artifactId>
+			<version>${jtoolbox-commons-configuration.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jsoup</groupId>

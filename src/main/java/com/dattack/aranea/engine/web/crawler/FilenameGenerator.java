@@ -26,6 +26,7 @@ import org.apache.commons.configuration.PropertyConverter;
 import org.apache.commons.lang.StringUtils;
 
 import com.dattack.aranea.beans.web.crawler.StorageBean;
+import com.dattack.aranea.engine.web.Context;
 import com.dattack.aranea.util.HashUtil;
 
 /**
@@ -47,7 +48,7 @@ public class FilenameGenerator {
         this.storageBean = storageBean;
 
         if (StringUtils.isNotBlank(storageBean.getUrlRegEx())) {
-            this.urlRegExPattern = Pattern.compile(storageBean.getUrlRegEx());
+            this.urlRegExPattern = Pattern.compile(Context.get().interpolate(storageBean.getUrlRegEx()));
         }
     }
 

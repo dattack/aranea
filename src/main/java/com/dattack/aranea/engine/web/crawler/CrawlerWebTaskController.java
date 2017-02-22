@@ -41,6 +41,7 @@ import com.dattack.aranea.beans.web.crawler.ExcludeBean;
 import com.dattack.aranea.beans.web.crawler.RegionSelectorBean;
 import com.dattack.aranea.beans.web.crawler.SeedBean;
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
+import com.dattack.aranea.engine.web.Context;
 import com.dattack.aranea.util.NamedThreadFactory;
 import com.dattack.aranea.util.WebTaskUtil;
 
@@ -64,7 +65,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     private static boolean exclude(final String uri, final List<ExcludeBean> excludeBeanList) {
 
         for (final ExcludeBean bean : excludeBeanList) {
-            if (uri.matches(bean.getRegex())) {
+            if (uri.matches(Context.get().interpolate(bean.getRegex()))) {
                 return true;
             }
         }
@@ -74,7 +75,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     public CrawlerWebTaskController(final WebBean sourceBean) {
 
         this.sourceBean = sourceBean;
-        this.repository = new Repository(sourceBean.getRepository());
+        this.repository = new Repository(Context.get().interpolate(sourceBean.getRepository()));
         this.taskStatus = new CrawlerWebTaskStatus(MAX_ERRORS);
         this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean());
         this.executor = new ThreadPoolExecutor(getCrawlerBean().getThreadPoolSize(),
@@ -90,7 +91,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     public void execute() {
         try {
             for (final String url : getCrawlerBean().getHomeList()) {
-                submit(new Page(new URI(url)));
+                submit(new Page(new URI(Context.get().interpolate(url))));
             }
         } catch (final URISyntaxException e) {
             log.error(e.getMessage());
@@ -301,7 +302,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
                 final URI linkUri = pageInfo.getPage().getUri().resolve(linkHref);
                 final String uriAsText = linkUri.toString();
 
-                if (uriAsText.matches(domSelectorBean.getFilter())
+                if (uriAsText.matches(Context.get().interpolate(domSelectorBean.getFilter()))
                         && !exclude(uriAsText, domSelectorBean.getExcludeUrlList())) {
                     submitUri(pageInfo, uriAsText, pageInfo.getPage().getUri());
                 } else {
@@ -309,7 +310,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
                 }
 
             } catch (final Throwable e) {
-                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", pageInfo.getPage().getUri(), linkHref,
+                log.warn("Document URL: {}, Link: {}, ERROR: {}", pageInfo.getPage().getUri(), linkHref,
                         e.getMessage());
                 pageInfo.addIgnoredLink(linkHref);
             }
