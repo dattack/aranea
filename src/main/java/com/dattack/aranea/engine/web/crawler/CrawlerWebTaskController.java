@@ -41,7 +41,9 @@ import com.dattack.aranea.beans.web.crawler.ExcludeBean;
 import com.dattack.aranea.beans.web.crawler.RegionSelectorBean;
 import com.dattack.aranea.beans.web.crawler.SeedBean;
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
-import com.dattack.aranea.engine.web.Context;
+import com.dattack.aranea.engine.Context;
+import com.dattack.aranea.engine.Page;
+import com.dattack.aranea.engine.PageInfo;
 import com.dattack.aranea.util.NamedThreadFactory;
 import com.dattack.aranea.util.WebTaskUtil;
 

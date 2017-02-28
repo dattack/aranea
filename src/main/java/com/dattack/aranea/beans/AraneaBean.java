@@ -19,9 +19,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElements;
 //import javax.xml.bind.annotation.XmlElements;
 import javax.xml.bind.annotation.XmlRootElement;
 
+import com.dattack.aranea.beans.rest.RestBean;
 import com.dattack.aranea.beans.web.WebBean;
 
 /**
@@ -33,11 +35,10 @@ import com.dattack.aranea.beans.web.WebBean;
 @XmlRootElement(name = XmlTokens.ARANEA)
 public class AraneaBean {
 
-//    @XmlElements({ //
-//            @XmlElement(name = XmlTokens.WEB, type = WebBean.class), //
-//            @XmlElement(name = XmlTokens.REST, type = RestBean.class)//
-//    })
-    @XmlElement(name = XmlTokens.WEB, type = WebBean.class, required = true)
+    @XmlElements({ //
+            @XmlElement(name = XmlTokens.WEB, type = WebBean.class), //
+            @XmlElement(name = XmlTokens.REST, type = RestBean.class)//
+    })
     private final List<AbstractTaskBean> taskList;
 
     public AraneaBean() {

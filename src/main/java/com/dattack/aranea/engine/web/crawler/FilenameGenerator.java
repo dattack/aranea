@@ -26,7 +26,7 @@ import org.apache.commons.configuration.PropertyConverter;
 import org.apache.commons.lang.StringUtils;
 
 import com.dattack.aranea.beans.web.crawler.StorageBean;
-import com.dattack.aranea.engine.web.Context;
+import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.util.HashUtil;
 
 /**

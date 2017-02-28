@@ -25,6 +25,8 @@ import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dattack.aranea.engine.Page;
+import com.dattack.aranea.engine.PageInfo;
 import com.dattack.aranea.util.ThreadUtil;
 
 /**

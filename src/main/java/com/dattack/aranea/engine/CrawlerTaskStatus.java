@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.engine.web.crawler;
+package com.dattack.aranea.engine;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,22 +22,18 @@ import java.util.Set;
 
 import org.apache.http.HttpStatus;
 
-import com.dattack.aranea.engine.Page;
-import com.dattack.aranea.engine.PageInfo;
-
 /**
  * @author cvarela
  * @since 0.1
  */
-@Deprecated
-class CrawlerWebTaskStatus {
+public class CrawlerTaskStatus {
 
     private final int maxErrors;
     private final Set<Page> pendingUris;
     private final Set<Page> visitedUris;
     private final Map<Page, Short> errorCounter;
 
-    protected CrawlerWebTaskStatus(final int maxErrors) {
+    public CrawlerTaskStatus(final int maxErrors) {
         this.maxErrors = maxErrors;
         this.pendingUris = new HashSet<Page>();
         this.visitedUris = new HashSet<Page>();
@@ -60,18 +56,18 @@ class CrawlerWebTaskStatus {
     /*
      * Mark a page as visited.
      */
-    void registerAsVisited(final Page page) {
+    public void registerAsVisited(final Page page) {
         this.visitedUris.add(page);
         this.pendingUris.remove(page);
         errorCounter.remove(page);
     }
 
-    void fail(final PageInfo pageInfo) {
+    public void fail(final PageInfo pageInfo) {
         errorCounter.remove(pageInfo.getPage());
         pendingUris.remove(pageInfo.getPage());
     }
 
-    boolean relaunch(final PageInfo pageInfo) {
+    public boolean relaunch(final PageInfo pageInfo) {
 
         boolean relaunch = pageInfo.getStatusCode() != HttpStatus.SC_NOT_FOUND;
 
@@ -89,7 +85,7 @@ class CrawlerWebTaskStatus {
         return relaunch;
     }
 
-    boolean submit(final Page uri) {
+    public boolean submit(final Page uri) {
 
         if (!visitedUris.contains(uri) && !pendingUris.contains(uri)) {
             pendingUris.add(uri);

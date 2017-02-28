@@ -21,6 +21,8 @@ import java.io.OutputStream;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.ObjectUtils;
 
+import com.dattack.aranea.engine.PageInfo;
+
 /**
  * @author cvarela
  * @since 0.1

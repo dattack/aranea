@@ -24,6 +24,8 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dattack.aranea.engine.PageInfo;
+
 /**
  * @author cvarela
  * @since 0.1

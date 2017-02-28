@@ -64,10 +64,10 @@
 	<properties>
 		<appassembler-maven-plugin.version>1.10</appassembler-maven-plugin.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<httpclient.version>4.3.1</httpclient.version>
+		<httpclient.version>4.5.3</httpclient.version>
 		<jsoup.version>1.7.3</jsoup.version>
 		<commons-io.version>2.4</commons-io.version>
-		<jtoolbox-commons-configuration.version>0.1-SNAPSHOT</jtoolbox-commons-configuration.version>
+		<jtoolbox.version>0.1-SNAPSHOT</jtoolbox.version>
 		<slf4j-log4j12.version>1.7.5</slf4j-log4j12.version>
 		<json.version>20160212</json.version>
 	</properties>
@@ -80,8 +80,13 @@
 		</dependency>
 		<dependency>
 			<groupId>com.dattack</groupId>
+			<artifactId>jtoolbox-core</artifactId>
+			<version>${jtoolbox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.dattack</groupId>
 			<artifactId>jtoolbox-commons-configuration</artifactId>
-			<version>${jtoolbox-commons-configuration.version}</version>
+			<version>${jtoolbox.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jsoup</groupId>
