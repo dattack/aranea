@@ -51,16 +51,4 @@ public class HashUtil {
 
         return hash.toString();
     }
-
-    public static void main(String[] args) {
-
-        String url = "http://zalando.es";
-        try {
-            System.out.format("MD5: %s%n", HashUtil.md5(url));
-            System.out.format("SHA-1: %s%n", HashUtil.sha1(url));
-            System.out.format("SHA-256: %s%n", HashUtil.sha256(url));
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-    }
 }
