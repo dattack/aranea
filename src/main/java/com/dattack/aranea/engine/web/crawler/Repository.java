@@ -16,7 +16,6 @@
 package com.dattack.aranea.engine.web.crawler;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
@@ -24,7 +23,7 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.dattack.aranea.engine.PageInfo;
+import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 
 /**
  * @author cvarela
@@ -57,13 +56,15 @@ public class Repository {
         return crawlerLog;
     }
 
-    public void write(final String filename, final String data, final PageInfo pageInfo) throws IOException {
+    public void write(final String filename, final String data, final ResourceDiscoveryStatus resourceDiscoveryStatus)
+            throws IOException {
 
         if (filename != null) {
             FileUtils.writeStringToFile(new File(path, filename), data);
-            log.debug("{} stored as {}", pageInfo.getPage().getUri().toString(), filename);
+            log.debug("{} stored as {}", resourceDiscoveryStatus.getResourceCoordinates().getUri().toString(),
+                    filename);
         }
 
-        getCrawlerLog().write(pageInfo);
+        getCrawlerLog().write(resourceDiscoveryStatus);
     }
 }

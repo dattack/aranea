@@ -15,8 +15,10 @@
  */
 package com.dattack.aranea.engine;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,7 +26,7 @@ import java.util.Set;
  * @author cvarela
  * @since 0.1
  */
-public class CrawlerTaskStatus {
+public class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
 
     private final int maxErrors;
     private final Set<ResourceCoordinates> pendingUris;
@@ -110,5 +112,35 @@ public class CrawlerTaskStatus {
 
     public int getVisitedUrisCounter() {
         return visitedUris.size();
+    }
+    
+    @Override
+    public Set<String> getVisitedUris(final int start, final int offset) {
+
+        return getUriSubset(getVisitedUris(), start, offset);
+    }
+
+    @Override
+    public Set<String> getErrorUris(final int start, final int offset) {
+
+        return getUriSubset(getErrorUris(), start, offset);
+    }
+
+    @Override
+    public Set<String> getPendingUris(final int start, final int offset) {
+
+        return getUriSubset(getPendingUris(), start, offset);
+    }
+    
+    private Set<String> getUriSubset(final Set<ResourceCoordinates> resources, final int start, final int offset) {
+
+        final List<ResourceCoordinates> pageList = new ArrayList<>(resources);
+
+        final Set<String> set = new HashSet<>();
+        int index = start;
+        while (index < resources.size() && index < start + offset) {
+            set.add(pageList.get(index++).getUri().toString());
+        }
+        return set;
     }
 }

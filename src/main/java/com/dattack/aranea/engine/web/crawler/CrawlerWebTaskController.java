@@ -19,39 +19,29 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.configuration.BaseConfiguration;
-import org.apache.commons.configuration.PropertyConverter;
-import org.apache.commons.lang.StringUtils;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.web.WebBean;
 import com.dattack.aranea.beans.web.crawler.CrawlerBean;
-import com.dattack.aranea.beans.web.crawler.ExcludeBean;
-import com.dattack.aranea.beans.web.crawler.RegionSelectorBean;
-import com.dattack.aranea.beans.web.crawler.SeedBean;
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
 import com.dattack.aranea.engine.Context;
-import com.dattack.aranea.engine.Page;
-import com.dattack.aranea.engine.PageInfo;
+import com.dattack.aranea.engine.CrawlerTaskStatus;
+import com.dattack.aranea.engine.ResourceCoordinates;
+import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 import com.dattack.aranea.util.NamedThreadFactory;
-import com.dattack.aranea.util.WebTaskUtil;
 
 /**
  * @author cvarela
  * @since 0.1
  */
-class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
+class CrawlerWebTaskController {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerWebTaskController.class);
 
@@ -61,14 +51,14 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     private final ThreadPoolExecutor executor;
     private final FilenameGenerator filenameGenerator;
     private final List<LinkNormalizer> linkNormalizers;
-    private final CrawlerWebTaskStatus taskStatus;
+    private final CrawlerTaskStatus taskStatus;
     private final Repository repository;
 
     public CrawlerWebTaskController(final WebBean sourceBean) {
 
         this.sourceBean = sourceBean;
         this.repository = new Repository(Context.get().interpolate(sourceBean.getRepository()));
-        this.taskStatus = new CrawlerWebTaskStatus(MAX_ERRORS);
+        this.taskStatus = new CrawlerTaskStatus(MAX_ERRORS);
         this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean());
         this.executor = new ThreadPoolExecutor(getCrawlerBean().getThreadPoolSize(),
                 getCrawlerBean().getThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue<Runnable>(),
@@ -83,7 +73,10 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     public void execute() {
         try {
             for (final String url : getCrawlerBean().getHomeList()) {
-                submit(new Page(new URI(Context.get().interpolate(url))));
+
+                ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
+                        new URI(Context.get().interpolate(url)));
+                submit(resourceCoordinates);
             }
         } catch (final URISyntaxException e) {
             log.error(e.getMessage());
@@ -94,28 +87,6 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         return getSourceBean().getCrawler();
     }
 
-    @Override
-    public Set<String> getErrorUris(final int start, final int offset) {
-
-        return getUriSubset(taskStatus.getErrorUris(), start, offset);
-    }
-
-    @Override
-    public int getErrorUrisCounter() {
-        return taskStatus.getErrorUrisCounter();
-    }
-
-    @Override
-    public Set<String> getPendingUris(final int start, final int offset) {
-
-        return getUriSubset(taskStatus.getPendingUris(), start, offset);
-    }
-
-    @Override
-    public int getPendingUrisCounter() {
-        return taskStatus.getPendingUrisCounter();
-    }
-
     WebBean getSourceBean() {
         return sourceBean;
     }
@@ -124,42 +95,21 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         return getCrawlerBean().getTimeout();
     }
 
-    private Set<String> getUriSubset(final Set<Page> pages, final int start, final int offset) {
-
-        final List<Page> pageList = new ArrayList<>(pages);
-
-        final Set<String> set = new HashSet<>();
-        int index = start;
-        while (index < pages.size() && index < start + offset) {
-            set.add(pageList.get(index++).getUri().toString());
-        }
-        return set;
-    }
-
-    @Override
-    public Set<String> getVisitedUris(final int start, final int offset) {
-
-        return getUriSubset(taskStatus.getVisitedUris(), start, offset);
-    }
-
-    @Override
-    public int getVisitedUrisCounter() {
-        return taskStatus.getVisitedUrisCounter();
-    }
-
-    void handle(final PageInfo pageInfo, final Document doc) {
+    void handle(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Document doc) {
 
         try {
-            taskStatus.registerAsVisited(pageInfo.getPage());
+            taskStatus.registerAsVisited(resourceDiscoveryStatus.getResourceCoordinates());
 
-            final String filename = filenameGenerator.getFilename(pageInfo.getPage().getUri());
-            repository.write(filename, doc.html(), pageInfo);
+            final String filename = filenameGenerator
+                    .getFilename(resourceDiscoveryStatus.getResourceCoordinates().getUri());
+            repository.write(filename, doc.html(), resourceDiscoveryStatus);
 
             tryShutdown();
 
-            log.info("{} new URIs from {}", pageInfo.getNewUris().size(), pageInfo.getPage().getUri().toString());
+            log.info("{} new URIs from {}", resourceDiscoveryStatus.getNewUris().size(),
+                    resourceDiscoveryStatus.getResourceCoordinates().getUri().toString());
         } catch (final IOException e) {
-            relaunch(pageInfo);
+            relaunch(resourceDiscoveryStatus.getResourceCoordinates());
         }
     }
 
@@ -178,33 +128,27 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
     }
 
-    void fail(final PageInfo pageInfo) {
+    void fail(final ResourceCoordinates resourceCoordinates) {
 
-        taskStatus.fail(pageInfo);
+        taskStatus.fail(resourceCoordinates);
         tryShutdown();
     }
 
-    /**
-     * Relaunch a failed page.
-     *
-     * @param uri
-     *            the page to crawl.
-     */
-    void relaunch(final PageInfo pageInfo) {
+    void relaunch(final ResourceCoordinates resourceCoordinates) {
 
-        final boolean relaunch = taskStatus.relaunch(pageInfo);
+        final boolean relaunch = taskStatus.relaunch(resourceCoordinates);
         if (relaunch) {
-            submit(pageInfo.getPage());
+            submit(resourceCoordinates);
         } else {
             tryShutdown();
         }
     }
 
-    protected boolean submit(final Page page) {
+    protected boolean submit(final ResourceCoordinates resourceCoordinates) {
 
         try {
-            if (taskStatus.submit(page)) {
-                executor.submit(new CrawlerWebTask(page, this));
+            if (taskStatus.submit(resourceCoordinates)) {
+                executor.submit(new CrawlerWebTask(resourceCoordinates, this));
                 return true;
             }
             return false;

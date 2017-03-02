@@ -21,7 +21,7 @@ import java.io.OutputStream;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.ObjectUtils;
 
-import com.dattack.aranea.engine.PageInfo;
+import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 
 /**
  * @author cvarela
@@ -35,19 +35,16 @@ public class CrawlerLog {
         this.outputStream = fileOutputStream;
     }
 
-    public void write(final PageInfo pageInfo) throws IOException {
+    public void write(final ResourceDiscoveryStatus resourceDiscoveryStatus) throws IOException {
 
         final StringBuilder builder = new StringBuilder() //
-                .append(ObjectUtils.toString(pageInfo.getPage().getReferer())) //
-                .append("\t") //
-                .append(ObjectUtils.toString(pageInfo.getPage().getUri())) //
-                .append("\t").append(pageInfo.getStatusCode()) //
-                .append("\t").append(pageInfo.getStatusMessage()) //
-                .append("\t").append(pageInfo.getCharset()) //
-                .append("\t").append(pageInfo.getContentType()) //
-                .append("\t").append(pageInfo.getNewUris().size()) //
-                .append("\t").append(pageInfo.getVisitedUris().size()) //
-                .append("\t").append(pageInfo.getIgnoredLinks().size() + pageInfo.getIgnoredUris().size()) //
+                .append(ObjectUtils.toString(resourceDiscoveryStatus.getResourceCoordinates().getReferer())) //
+                .append("\t").append(ObjectUtils.toString(resourceDiscoveryStatus.getResourceCoordinates().getUri())) //
+                .append("\t").append(resourceDiscoveryStatus.getNewUris().size()) //
+                .append("\t").append(resourceDiscoveryStatus.getAlreadyVisited().size()) //
+                .append("\t")
+                .append(resourceDiscoveryStatus.getIgnoredLinks().size()
+                        + resourceDiscoveryStatus.getIgnoredUris().size()) //
                 .append("\n");
 
         IOUtils.write(builder.toString(), outputStream);

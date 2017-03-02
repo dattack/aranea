@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Dattack team (http://www.dattack.com)
+ * Copyright (c) 2017, The Dattack team (http://www.dattack.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.engine.web.crawler;
+package com.dattack.aranea.engine;
 
 import java.util.Set;
 
@@ -21,7 +21,7 @@ import java.util.Set;
  * @author cvarela
  * @since 0.1
  */
-public interface CrawlerWebTaskControllerMBean {
+public interface CrawlerTaskStatusMBean {
 
     Set<String> getVisitedUris(int start, int offset);
 
