@@ -15,18 +15,13 @@
  */
 package com.dattack.aranea.engine.rest;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.dattack.aranea.beans.rest.RestBean;
 
 /**
  * @author cvarela
- *
+ * @since 0.1
  */
 public class CrawlerRestEngine {
-
-    private static final Logger log = LoggerFactory.getLogger(CrawlerRestEngine.class);
 
     public void submit(final RestBean restBean) {
         

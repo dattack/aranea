@@ -17,6 +17,8 @@ package com.dattack.aranea.engine;
 
 import java.net.URI;
 
+import org.apache.commons.lang.ObjectUtils;
+
 /**
  * @author cvarela
  * @since 0.1
@@ -61,5 +63,10 @@ public class ResourceCoordinates {
     @Override
     public int hashCode() {
         return uri.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ResourceCoordinates [uri=%s, referer=%s]", uri, ObjectUtils.toString(referer, ""));
     }
 }
