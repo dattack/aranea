@@ -26,16 +26,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.ObjectUtils;
-import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.appender.AbstractAppender;
 import com.dattack.aranea.beans.appender.FileAppender;
@@ -44,16 +43,20 @@ import com.dattack.aranea.beans.rest.RestBean;
 import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.CrawlerTaskStatus;
 import com.dattack.aranea.engine.ResourceCoordinates;
+import com.dattack.aranea.engine.ResourceDiscoveryStatus;
+import com.dattack.aranea.engine.ResourceObject;
 import com.dattack.aranea.util.NamedThreadFactory;
 import com.dattack.aranea.util.http.HttpResourceResponse;
 import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
 
 /**
  * @author cvarela
- *
+ * @since 0.1
  */
 public class CrawlerRestTaskController {
 
+    private static final Logger log = LoggerFactory.getLogger(CrawlerRestTaskController.class);
+    
     private final RestBean restBean;
     private final Map<String, OutputStream> outputMapping;
     private final ThreadPoolExecutor executor;
@@ -85,12 +88,15 @@ public class CrawlerRestTaskController {
     }
 
     private void tryShutdown() {
-        if (crawlerStatus.getPendingUrisCounter() == 0) {
+        
+        if (crawlerStatus.isCompleted()) {
+            log.info("Shutdown in progress");
             executor.shutdown();
+            log.info("Shutdown completed");
         }
     }
 
-    public synchronized OutputStream getOutputStream(final String path) throws FileNotFoundException {
+    private synchronized OutputStream getOutputStream(final String path) throws FileNotFoundException {
 
         OutputStream outputStream = outputMapping.get(path);
         if (outputStream == null) {
@@ -100,7 +106,7 @@ public class CrawlerRestTaskController {
         return outputStream;
     }
 
-    public ResourceBean lookupResource(final String uri) {
+    private ResourceBean lookupResource(final String uri) {
 
         for (final ResourceBean item : restBean.getResourceBeanList()) {
             final String pattern = Context.get().interpolate(item.getRegex());
@@ -112,13 +118,13 @@ public class CrawlerRestTaskController {
         return null;
     }
 
-    void fail(final ResourceCoordinates resourceCoordinates) {
+    protected void fail(final ResourceCoordinates resourceCoordinates) {
 
         crawlerStatus.fail(resourceCoordinates);
         tryShutdown();
     }
 
-    void relaunch(final ResourceCoordinates resourceCoordinates) {
+    protected void relaunch(final ResourceCoordinates resourceCoordinates) {
 
         final boolean relaunch = crawlerStatus.relaunch(resourceCoordinates);
         if (relaunch) {
@@ -128,7 +134,7 @@ public class CrawlerRestTaskController {
         }
     }
 
-    private void notifyAppenders(final BaseConfiguration configuration, final List<AbstractAppender> appenderList) {
+    private void notifyAppenders(final AbstractConfiguration configuration, final List<AbstractAppender> appenderList) {
 
         for (final AbstractAppender appender : appenderList) {
 
@@ -148,36 +154,31 @@ public class CrawlerRestTaskController {
         }
     }
 
-    private void handleResources(final ResourceBean resourceBean, final List<Map<String, Object>> resourceList) {
+    private synchronized boolean isUnique(final ResourceObject resource) {
 
-        for (Map<String, Object> resource : resourceList) {
-
-            final BaseConfiguration configuration = new BaseConfiguration();
-
-            boolean skipResource = false;
-            for (final Entry<String, Object> item : resource.entrySet()) {
-                if (item.getKey().equalsIgnoreCase("_id")) {
-                    synchronized (resourceIdList) {
-                        if (resourceIdList.contains(item.getValue())) {
-                            skipResource = true;
-                            break;
-                        } else {
-                            resourceIdList.add(item.getValue());
-                        }
-                    }
-                }
-
-                configuration.setProperty(item.getKey(),
-                        StringUtils.trimToEmpty(ObjectUtils.toString(item.getValue())));
+        Object id = resource.getId();
+        if (id != null) {
+            if (resourceIdList.contains(id)) {
+                return false;
             }
 
-            if (!skipResource) {
-                notifyAppenders(configuration, resourceBean.getAppenders().getAppenderList());
+            resourceIdList.add(id);
+        }
+        return true;
+    }
+
+    private void handleResources(final ResourceBean resourceBean, final List<ResourceObject> resourceList) {
+
+        for (ResourceObject resource : resourceList) {
+
+            if (isUnique(resource)) {
+                notifyAppenders(resource.compileConfiguration(), resourceBean.getAppenders().getAppenderList());
             }
         }
     }
 
-    void handle(final HttpResourceResponse response, List<Map<String, Object>> resources) {
+    protected void handle(final HttpResourceResponse response, final ResourceDiscoveryStatus resourceDiscoveryStatus,
+            final List<ResourceObject> resources) {
 
         try {
             crawlerStatus.registerAsVisited(response.getRequest().getResourceCoordinates());
@@ -188,14 +189,14 @@ public class CrawlerRestTaskController {
                 handleResources(resourceBean, resources);
             }
 
-            tryShutdown();
-
         } catch (final Exception e) {
             relaunch(response.getRequest().getResourceCoordinates());
+        } finally {
+            tryShutdown();
         }
     }
 
-    public boolean submit(final ResourceCoordinates resourceCoordinates) {
+    protected boolean submit(final ResourceCoordinates resourceCoordinates) {
         try {
 
             final ResourceBean resourceBean = lookupResource(resourceCoordinates.getUri().toString());
@@ -207,9 +208,10 @@ public class CrawlerRestTaskController {
                 }
             }
 
+            return false;
+
         } finally {
             tryShutdown();
         }
-        return false;
     }
 }

@@ -38,6 +38,7 @@ import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
+import com.dattack.aranea.engine.ResourceObject;
 import com.dattack.aranea.util.http.HttpResourceHelper;
 import com.dattack.aranea.util.http.HttpResourceRequest;
 import com.dattack.aranea.util.http.HttpResourceRequest.HttpResourceRequestBuilder;
@@ -68,18 +69,18 @@ class CrawlerRestTask implements Runnable {
         this.resourceBean = resourceBean;
     }
 
-    private List<Map<String, Object>> processData(final Object obj) {
+    private List<ResourceObject> extractData(final Object obj) {
 
-        List<Map<String, Object>> resourceList = null;
+        List<ResourceObject> resourceList = null;
         if (obj != null && obj instanceof Bindings) {
 
             final Bindings bindings = (Bindings) obj;
             if (!bindings.isEmpty()) {
                 resourceList = new ArrayList<>();
                 for (final Object objItem : bindings.values()) {
-                    final Map<String, Object> map = processDataItem(objItem);
-                    if (map != null) {
-                        resourceList.add(map);
+                    final ResourceObject resourceObject = extractDataItem(objItem);
+                    if (resourceObject != null) {
+                        resourceList.add(resourceObject);
                     }
                 }
             }
@@ -87,19 +88,19 @@ class CrawlerRestTask implements Runnable {
         return resourceList;
     }
 
-    private Map<String, Object> processDataItem(final Object obj) {
+    private ResourceObject extractDataItem(final Object obj) {
 
         if (obj != null && obj instanceof Bindings) {
             final Bindings bindings = (Bindings) obj;
             if (!bindings.isEmpty()) {
-                return bindings;
+                return new ResourceObject(bindings);
             }
         }
 
         return null;
     }
 
-    private void processLinkItem(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Object obj) {
+    private void submitLinkItem(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Object obj) {
 
         if (obj != null && obj instanceof Bindings) {
             final Bindings bindings = (Bindings) obj;
@@ -125,13 +126,13 @@ class CrawlerRestTask implements Runnable {
         }
     }
 
-    private ResourceDiscoveryStatus processLinks(final Object obj) {
+    private ResourceDiscoveryStatus submitLinks(final Object obj) {
 
         ResourceDiscoveryStatus resourceDiscoveryStatus = new ResourceDiscoveryStatus(resourceCoordinates);
         if (obj != null && obj instanceof Bindings) {
             final Bindings bindings = (Bindings) obj;
             for (final Entry<String, Object> entry : bindings.entrySet()) {
-                processLinkItem(resourceDiscoveryStatus, entry.getValue());
+                submitLinkItem(resourceDiscoveryStatus, entry.getValue());
             }
         }
         return resourceDiscoveryStatus;
@@ -145,6 +146,14 @@ class CrawlerRestTask implements Runnable {
             builder.withHeader(headerBean.getName(), headerBean.getValue());
         }
         return builder.build();
+    }
+
+    private Object evalJavascript(final String json) throws ScriptException {
+
+        final Map<Object, Object> params = new HashMap<>();
+        params.put("data", json);
+
+        return JavaScriptEngine.eval(resourceBean.getScript(), params);
     }
 
     @Override
@@ -163,21 +172,17 @@ class CrawlerRestTask implements Runnable {
 
                 if (response.hasData()) {
 
-                    final Map<Object, Object> params = new HashMap<>();
-                    params.put("data", response.getData());
-
-                    final Object jsResult = JavaScriptEngine.eval(resourceBean.getScript(), params);
-
-                    List<Map<String, Object>> resourceList = null;
-                    ResourceDiscoveryStatus resourceDiscoveryStatus = null;
-                    if (jsResult instanceof Bindings) {
-                        final Bindings bindings = (Bindings) jsResult;
-                        resourceList = processData(bindings.get(DATA_KEY));
-                        resourceDiscoveryStatus = processLinks(bindings.get(LINKS_KEY));
-                    }
-
                     if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                        controller.handle(response, resourceList);
+                        final Object jsResult = evalJavascript(response.getData());
+
+                        List<ResourceObject> resourceList = null;
+                        ResourceDiscoveryStatus resourceDiscoveryStatus = null;
+                        if (jsResult instanceof Bindings) {
+                            final Bindings bindings = (Bindings) jsResult;
+                            resourceList = extractData(bindings.get(DATA_KEY));
+                            resourceDiscoveryStatus = submitLinks(bindings.get(LINKS_KEY));
+                        }
+                        controller.handle(response, resourceDiscoveryStatus, resourceList);
                     } else if (response.getStatusLine().getStatusCode() >= HttpStatus.SC_BAD_REQUEST) {
                         controller.fail(resourceCoordinates);
                     } else {
@@ -186,24 +191,24 @@ class CrawlerRestTask implements Runnable {
                     }
 
                 } else {
-                    // TODO: the resource returns no data
+                    log.error("Unable to process an empty resource (no text data retrieved): {}",
+                            resourceCoordinates.toString());
+                    controller.fail(resourceCoordinates);
                 }
             } else {
-                // TODO: unable to process resource without JS-script
+                log.error("Unable to process a resource without javascript configuration: {}",
+                        resourceCoordinates.toString());
+                controller.fail(resourceCoordinates);
             }
-
-            controller.fail(resourceCoordinates);
 
         } catch (IOException e) {
 
-            log.warn("{}: {} (Referer: {})", e.getMessage(), resourceCoordinates.getUri(),
-                    resourceCoordinates.getReferer());
+            log.warn("{}: {}", e.getMessage(), resourceCoordinates.toString());
             controller.relaunch(resourceCoordinates);
 
         } catch (ScriptException e) {
 
-            log.warn("{}: {} (Referer: {})", e.getMessage(), resourceCoordinates.getUri(),
-                    resourceCoordinates.getReferer());
+            log.error("{}: {}", e.getMessage(), resourceCoordinates.toString());
             controller.fail(resourceCoordinates);
         }
     }
