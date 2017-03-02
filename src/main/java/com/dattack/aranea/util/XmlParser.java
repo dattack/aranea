@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.beans.web.parser;
+package com.dattack.aranea.util;
 
 import java.io.File;
 
@@ -21,24 +21,22 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 
-import com.dattack.aranea.beans.AraneaBean;
-
 /**
  * @author cvarela
  * @since 0.1
  */
-public class AraneaParser {
+public final class XmlParser {
 
-    private AraneaParser() {
+    private XmlParser() {
         // static class
     }
 
-    public static AraneaBean parse(final String filename) throws JAXBException {
+    public static Object parse(final Class<?> type, final String filename) throws JAXBException {
 
         File file = new File(filename);
-        JAXBContext jaxbContext = JAXBContext.newInstance(AraneaBean.class);
+        JAXBContext jaxbContext = JAXBContext.newInstance(type);
 
         Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
-        return (AraneaBean) jaxbUnmarshaller.unmarshal(file);
+        return jaxbUnmarshaller.unmarshal(file);
     }
 }

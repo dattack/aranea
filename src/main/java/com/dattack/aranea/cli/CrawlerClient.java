@@ -19,9 +19,9 @@ import org.slf4j.LoggerFactory;
 import com.dattack.aranea.beans.AbstractTaskBean;
 import com.dattack.aranea.beans.AraneaBean;
 import com.dattack.aranea.beans.web.WebBean;
-import com.dattack.aranea.beans.web.parser.AraneaParser;
 import com.dattack.aranea.engine.web.crawler.CrawlerWebEngine;
 import com.dattack.aranea.util.CommandLine;
+import com.dattack.aranea.util.XmlParser;
 
 /**
  * The main client used to execute the crawler bot.
@@ -35,7 +35,7 @@ public final class CrawlerClient {
 
     private static void execute(final String xmlConfigurationFilename, final String sourceName) throws Exception {
 
-        AraneaBean araneaBean = AraneaParser.parse(xmlConfigurationFilename);
+        AraneaBean araneaBean = (AraneaBean) XmlParser.parse(AraneaBean.class, xmlConfigurationFilename);
 
         CrawlerWebEngine crawlerEngine = new CrawlerWebEngine();
 
