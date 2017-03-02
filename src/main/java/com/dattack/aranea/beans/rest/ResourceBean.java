@@ -18,6 +18,7 @@ package com.dattack.aranea.beans.rest;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 
+import com.dattack.aranea.beans.HeadersBean;
 import com.dattack.aranea.beans.XmlTokens;
 import com.dattack.aranea.beans.appender.AppendersBean;
 import com.dattack.jtoolbox.util.CollectionUtils;
@@ -40,8 +41,15 @@ public class ResourceBean {
     @XmlElement(name = "appenders", required = false, nillable = false)
     private AppendersBean appenders;
 
+    @XmlElement(name = XmlTokens.HEADERS, required = false, nillable = false)
+    private HeadersBean headers;
+
     public AppendersBean getAppenders() {
         return appenders;
+    }
+
+    public HeadersBean getHeaders() {
+        return headers;
     }
 
     public String getMethod() {
@@ -55,7 +63,7 @@ public class ResourceBean {
     public String getScript() {
         return script;
     }
-    
+
     public boolean hasAppenders() {
         return appenders != null && CollectionUtils.isNotEmpty(appenders.getAppenderList());
     }

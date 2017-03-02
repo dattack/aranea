@@ -35,6 +35,8 @@ public final class XmlTokens {
     public static final String FILENAME_PATTERN = "filenamePattern";
     public static final String FILTER = "filter";
     public static final String GROUP = "group";
+    public static final String HEADER = "header";
+    public static final String HEADERS = "headers";
     public static final String HOME = "home";
     public static final String ID = "id";
     public static final String INDEX = "index";

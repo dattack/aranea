@@ -43,9 +43,9 @@ import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.beans.rest.RestBean;
 import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.CrawlerTaskStatus;
-import com.dattack.aranea.engine.Page;
-import com.dattack.aranea.engine.PageInfo;
+import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.util.NamedThreadFactory;
+import com.dattack.aranea.util.http.HttpResourceResponse;
 import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
 
 /**
@@ -74,7 +74,9 @@ public class CrawlerRestTaskController {
 
         for (final String url : restBean.getCrawlerBean().getEntryPointList()) {
             try {
-                submit(new Page(new URI(Context.get().interpolate(url))));
+                final ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
+                        new URI(Context.get().interpolate(url)));
+                submit(resourceCoordinates);
             } catch (URISyntaxException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -110,23 +112,17 @@ public class CrawlerRestTaskController {
         return null;
     }
 
-    void fail(final PageInfo pageInfo) {
+    void fail(final ResourceCoordinates resourceCoordinates) {
 
-        crawlerStatus.fail(pageInfo);
+        crawlerStatus.fail(resourceCoordinates);
         tryShutdown();
     }
 
-    /**
-     * Relaunch a failed page.
-     *
-     * @param uri
-     *            the page to crawl.
-     */
-    void relaunch(final PageInfo pageInfo) {
+    void relaunch(final ResourceCoordinates resourceCoordinates) {
 
-        final boolean relaunch = crawlerStatus.relaunch(pageInfo);
+        final boolean relaunch = crawlerStatus.relaunch(resourceCoordinates);
         if (relaunch) {
-            submit(pageInfo.getPage());
+            submit(resourceCoordinates);
         } else {
             tryShutdown();
         }
@@ -181,12 +177,13 @@ public class CrawlerRestTaskController {
         }
     }
 
-    void handle(final PageInfo pageInfo, List<Map<String, Object>> resources) {
+    void handle(final HttpResourceResponse response, List<Map<String, Object>> resources) {
 
         try {
-            crawlerStatus.registerAsVisited(pageInfo.getPage());
+            crawlerStatus.registerAsVisited(response.getRequest().getResourceCoordinates());
 
-            final ResourceBean resourceBean = lookupResource(pageInfo.getPage().getUri().toString());
+            final ResourceBean resourceBean = lookupResource(
+                    response.getRequest().getResourceCoordinates().getUri().toString());
             if (resourceBean != null && resourceBean.hasAppenders()) {
                 handleResources(resourceBean, resources);
             }
@@ -194,23 +191,25 @@ public class CrawlerRestTaskController {
             tryShutdown();
 
         } catch (final Exception e) {
-            relaunch(pageInfo);
+            relaunch(response.getRequest().getResourceCoordinates());
         }
     }
 
-    public void submit(final Page page) {
+    public boolean submit(final ResourceCoordinates resourceCoordinates) {
         try {
 
-            final ResourceBean resourceBean = lookupResource(page.getUri().toString());
+            final ResourceBean resourceBean = lookupResource(resourceCoordinates.getUri().toString());
 
             if (resourceBean != null) {
-                if (crawlerStatus.submit(page)) {
-                    executor.submit(new CrawlerRestTask(page, this, resourceBean));
+                if (crawlerStatus.submit(resourceCoordinates)) {
+                    executor.submit(new CrawlerRestTask(resourceCoordinates, this, resourceBean));
+                    return true;
                 }
             }
 
         } finally {
             tryShutdown();
         }
+        return false;
     }
 }

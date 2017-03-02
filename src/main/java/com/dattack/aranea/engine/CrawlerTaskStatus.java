@@ -20,8 +20,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.http.HttpStatus;
-
 /**
  * @author cvarela
  * @since 0.1
@@ -29,72 +27,68 @@ import org.apache.http.HttpStatus;
 public class CrawlerTaskStatus {
 
     private final int maxErrors;
-    private final Set<Page> pendingUris;
-    private final Set<Page> visitedUris;
-    private final Map<Page, Short> errorCounter;
+    private final Set<ResourceCoordinates> pendingUris;
+    private final Set<ResourceCoordinates> visitedUris;
+    private final Map<ResourceCoordinates, Short> errorCounter;
 
     public CrawlerTaskStatus(final int maxErrors) {
         this.maxErrors = maxErrors;
-        this.pendingUris = new HashSet<Page>();
-        this.visitedUris = new HashSet<Page>();
-        this.errorCounter = new HashMap<Page, Short>();
+        this.pendingUris = new HashSet<ResourceCoordinates>();
+        this.visitedUris = new HashSet<ResourceCoordinates>();
+        this.errorCounter = new HashMap<ResourceCoordinates, Short>();
     }
 
-    private int incrErrorCounter(final Page uri) {
+    private int incrErrorCounter(final ResourceCoordinates resourceCoordinates) {
 
-        Short counter = errorCounter.get(uri);
+        Short counter = errorCounter.get(resourceCoordinates);
         if (counter == null) {
             counter = 1;
         } else {
             counter++;
         }
 
-        errorCounter.put(uri, counter);
+        errorCounter.put(resourceCoordinates, counter);
         return counter;
     }
 
     /*
      * Mark a page as visited.
      */
-    public void registerAsVisited(final Page page) {
-        this.visitedUris.add(page);
-        this.pendingUris.remove(page);
-        errorCounter.remove(page);
+    public void registerAsVisited(final ResourceCoordinates resourceCoordinates) {
+        this.visitedUris.add(resourceCoordinates);
+        this.pendingUris.remove(resourceCoordinates);
+        errorCounter.remove(resourceCoordinates);
     }
 
-    public void fail(final PageInfo pageInfo) {
-        errorCounter.remove(pageInfo.getPage());
-        pendingUris.remove(pageInfo.getPage());
+    public void fail(final ResourceCoordinates resourceCoordinates) {
+        errorCounter.remove(resourceCoordinates);
+        pendingUris.remove(resourceCoordinates);
     }
 
-    public boolean relaunch(final PageInfo pageInfo) {
+    public boolean relaunch(final ResourceCoordinates resourceCoordinates) {
 
-        boolean relaunch = pageInfo.getStatusCode() != HttpStatus.SC_NOT_FOUND;
-
-        if (relaunch) {
-            int counter = incrErrorCounter(pageInfo.getPage());
-            relaunch &= counter < maxErrors;
-        }
+        int counter = incrErrorCounter(resourceCoordinates);
+        boolean relaunch = counter < maxErrors;
 
         if (!relaunch) {
-            fail(pageInfo);
+            fail(resourceCoordinates);
         } else {
-            pendingUris.remove(pageInfo.getPage());
+            pendingUris.remove(resourceCoordinates);
         }
 
         return relaunch;
     }
 
-    public boolean submit(final Page uri) {
+    public boolean submit(final ResourceCoordinates resourceCoordinates) {
 
-        if (!visitedUris.contains(uri) && !pendingUris.contains(uri)) {
-            pendingUris.add(uri);
+        if (!visitedUris.contains(resourceCoordinates) && !pendingUris.contains(resourceCoordinates)) {
+            pendingUris.add(resourceCoordinates);
             return true;
         }
         return false;
     }
 
-    public Set<Page> getErrorUris() {
+    public Set<ResourceCoordinates> getErrorUris() {
         return errorCounter.keySet();
     }
 
@@ -102,7 +96,7 @@ public class CrawlerTaskStatus {
         return errorCounter.size();
     }
 
-    public Set<Page> getPendingUris() {
+    public Set<ResourceCoordinates> getPendingUris() {
         return pendingUris;
     }
 
@@ -110,7 +104,7 @@ public class CrawlerTaskStatus {
         return pendingUris.size();
     }
 
-    public Set<Page> getVisitedUris() {
+    public Set<ResourceCoordinates> getVisitedUris() {
         return visitedUris;
     }
 

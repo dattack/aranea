@@ -17,17 +17,20 @@ package com.dattack.aranea.engine.web.crawler;
 
 import java.io.IOException;
 
-import org.apache.commons.lang.StringUtils;
-import org.jsoup.Connection;
 import org.jsoup.HttpStatusException;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.parser.Parser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.engine.Page;
 import com.dattack.aranea.engine.PageInfo;
+import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.util.ThreadUtil;
+import com.dattack.aranea.util.http.HttpResourceHelper;
+import com.dattack.aranea.util.http.HttpResourceRequest;
+import com.dattack.aranea.util.http.HttpResourceRequest.HttpResourceRequestBuilder;
+import com.dattack.aranea.util.http.HttpResourceResponse;
 
 /**
  * @author cvarela
@@ -45,19 +48,6 @@ class CrawlerWebTask implements Runnable {
         this.controller = controller;
     }
 
-    private Connection prepareConnection() {
-
-        final Connection connection = Jsoup //
-                .connect(page.getUri().toString()) //
-                .followRedirects(true) //
-                .timeout(controller.getTimeout());
-
-        if (StringUtils.isNotBlank(controller.getSourceBean().getCrawler().getUserAgent())) {
-            connection.userAgent(controller.getSourceBean().getCrawler().getUserAgent());
-        }
-        return connection;
-    }
-
     @Override
     public void run() {
 
@@ -67,9 +57,12 @@ class CrawlerWebTask implements Runnable {
 
         try {
 
-            Connection connection = prepareConnection();
-            final Document document = connection.get();
-            controller.handle(new PageInfo(page, connection.response()), document);
+            ResourceCoordinates resourceCoordinates = new ResourceCoordinates(page.getUri(), page.getReferer());
+            HttpResourceRequest request = new HttpResourceRequestBuilder(resourceCoordinates).build();
+            HttpResourceResponse resource = HttpResourceHelper.get(request);
+            Document document = Parser.parse(resource.getData(), page.getUri().toString());
+
+            controller.handle(new PageInfo(page, "OK"), document);
 
         } catch (final HttpStatusException e) {
 

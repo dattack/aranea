@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Dattack team (http://www.dattack.com)
+ * Copyright (c) 2017, The Dattack team (http://www.dattack.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,14 +29,19 @@ import javax.script.ScriptException;
 
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
-import org.jsoup.HttpStatusException;
+import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dattack.aranea.beans.HeaderBean;
 import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.engine.Context;
-import com.dattack.aranea.engine.Page;
-import com.dattack.aranea.engine.PageInfo;
+import com.dattack.aranea.engine.ResourceCoordinates;
+import com.dattack.aranea.engine.ResourceDiscoveryStatus;
+import com.dattack.aranea.util.http.HttpResourceHelper;
+import com.dattack.aranea.util.http.HttpResourceRequest;
+import com.dattack.aranea.util.http.HttpResourceRequest.HttpResourceRequestBuilder;
+import com.dattack.aranea.util.http.HttpResourceResponse;
 import com.dattack.jtoolbox.script.JavaScriptEngine;
 
 /**
@@ -52,13 +57,13 @@ class CrawlerRestTask implements Runnable {
     private static final String METHOD_KEY = "method";
     private static final String URI_KEY = "uri";
 
-    private final Page page;
+    private final ResourceCoordinates resourceCoordinates;
     private final CrawlerRestTaskController controller;
     private final ResourceBean resourceBean;
 
-    public CrawlerRestTask(final Page page, final CrawlerRestTaskController controller,
+    public CrawlerRestTask(final ResourceCoordinates resourceCoordinates, final CrawlerRestTaskController controller,
             final ResourceBean resourceBean) {
-        this.page = page;
+        this.resourceCoordinates = resourceCoordinates;
         this.controller = controller;
         this.resourceBean = resourceBean;
     }
@@ -94,7 +99,7 @@ class CrawlerRestTask implements Runnable {
         return null;
     }
 
-    private void processLinkItem(final Object obj) {
+    private void processLinkItem(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Object obj) {
 
         if (obj != null && obj instanceof Bindings) {
             final Bindings bindings = (Bindings) obj;
@@ -105,7 +110,14 @@ class CrawlerRestTask implements Runnable {
             ObjectUtils.toString(bindings.get(METHOD_KEY));
             final String link = ObjectUtils.toString(bindings.get(URI_KEY));
             try {
-                controller.submit(new Page(new URI(Context.get().interpolate(link))));
+
+                ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(Context.get().interpolate(link)),
+                        resourceCoordinates.getUri());
+                if (controller.submit(linkCoordinates)) {
+                    resourceDiscoveryStatus.addNewUri(linkCoordinates.getUri());
+                } else {
+                    resourceDiscoveryStatus.addAlreadyVisited(linkCoordinates.getUri());
+                }
             } catch (URISyntaxException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -113,14 +125,26 @@ class CrawlerRestTask implements Runnable {
         }
     }
 
-    private void processLinks(final Object obj) {
+    private ResourceDiscoveryStatus processLinks(final Object obj) {
 
+        ResourceDiscoveryStatus resourceDiscoveryStatus = new ResourceDiscoveryStatus(resourceCoordinates);
         if (obj != null && obj instanceof Bindings) {
             final Bindings bindings = (Bindings) obj;
             for (final Entry<String, Object> entry : bindings.entrySet()) {
-                processLinkItem(entry.getValue());
+                processLinkItem(resourceDiscoveryStatus, entry.getValue());
             }
         }
+        return resourceDiscoveryStatus;
+    }
+
+    private HttpResourceRequest createRequest() {
+
+        HttpResourceRequestBuilder builder = new HttpResourceRequestBuilder(resourceCoordinates);
+
+        for (final HeaderBean headerBean : resourceBean.getHeaders().getHeaderList()) {
+            builder.withHeader(headerBean.getName(), headerBean.getValue());
+        }
+        return builder.build();
     }
 
     @Override
@@ -128,48 +152,59 @@ class CrawlerRestTask implements Runnable {
 
         // ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
 
-        log.info("GET {}", page.getUri());
+        log.info("GET {}", resourceCoordinates.getUri());
 
         try {
 
-            List<Map<String, Object>> resourceList = null;
             if (StringUtils.isNotBlank(resourceBean.getScript())) {
 
-                final String content = HttpCrawler.get(page.getUri());
+                final HttpResourceRequest request = createRequest();
+                final HttpResourceResponse response = HttpResourceHelper.get(request);
 
-                if (StringUtils.isNotBlank(content)) {
+                if (response.hasData()) {
+
                     final Map<Object, Object> params = new HashMap<>();
-                    params.put("data", content);
+                    params.put("data", response.getData());
+
                     final Object jsResult = JavaScriptEngine.eval(resourceBean.getScript(), params);
+
+                    List<Map<String, Object>> resourceList = null;
+                    ResourceDiscoveryStatus resourceDiscoveryStatus = null;
                     if (jsResult instanceof Bindings) {
                         final Bindings bindings = (Bindings) jsResult;
                         resourceList = processData(bindings.get(DATA_KEY));
-                        processLinks(bindings.get(LINKS_KEY));
+                        resourceDiscoveryStatus = processLinks(bindings.get(LINKS_KEY));
                     }
+
+                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                        controller.handle(response, resourceList);
+                    } else if (response.getStatusLine().getStatusCode() >= HttpStatus.SC_BAD_REQUEST) {
+                        controller.fail(resourceCoordinates);
+                    } else {
+                        // TODO: is 'relaunch' the right action?
+                        controller.relaunch(resourceCoordinates);
+                    }
+
                 } else {
                     // TODO: the resource returns no data
                 }
             } else {
-                // TODO: unable to process resource without JS-script 
+                // TODO: unable to process resource without JS-script
             }
 
-            controller.handle(new PageInfo(page, "OK"), resourceList);
-
-        } catch (final HttpStatusException e) {
-
-            log.warn("[{}] {}: {} (Referer: {})", e.getStatusCode(), e.getMessage(), page.getUri(), page.getReferer());
-            PageInfo pageInfo = new PageInfo(page, e.getStatusCode(), e.getMessage());
-            controller.relaunch(pageInfo);
+            controller.fail(resourceCoordinates);
 
         } catch (IOException e) {
 
-            log.warn("{}: {} (Referer: {})", e.getMessage(), page.getUri(), page.getReferer());
-            PageInfo pageInfo = new PageInfo(page, e.getMessage());
-            controller.fail(pageInfo);
+            log.warn("{}: {} (Referer: {})", e.getMessage(), resourceCoordinates.getUri(),
+                    resourceCoordinates.getReferer());
+            controller.relaunch(resourceCoordinates);
+
         } catch (ScriptException e) {
-            log.warn("{}: {} (Referer: {})", e.getMessage(), page.getUri(), page.getReferer());
-            PageInfo pageInfo = new PageInfo(page, e.getMessage());
-            controller.fail(pageInfo);
+
+            log.warn("{}: {} (Referer: {})", e.getMessage(), resourceCoordinates.getUri(),
+                    resourceCoordinates.getReferer());
+            controller.fail(resourceCoordinates);
         }
     }
 }
