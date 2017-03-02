@@ -64,16 +64,6 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
     private final CrawlerWebTaskStatus taskStatus;
     private final Repository repository;
 
-    private static boolean exclude(final String uri, final List<ExcludeBean> excludeBeanList) {
-
-        for (final ExcludeBean bean : excludeBeanList) {
-            if (uri.matches(Context.get().interpolate(bean.getRegex()))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public CrawlerWebTaskController(final WebBean sourceBean) {
 
         this.sourceBean = sourceBean;
@@ -100,7 +90,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
     }
 
-    private CrawlerBean getCrawlerBean() {
+    protected CrawlerBean getCrawlerBean() {
         return getSourceBean().getCrawler();
     }
 
@@ -161,7 +151,6 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
 
         try {
             taskStatus.registerAsVisited(pageInfo.getPage());
-            submitUrisFromDocument(doc, pageInfo);
 
             final String filename = filenameGenerator.getFilename(pageInfo.getPage().getUri());
             repository.write(filename, doc.html(), pageInfo);
@@ -174,7 +163,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
     }
 
-    private String normalizeUri(final String uri) {
+    protected String normalizeUri(final String uri) {
 
         String normalizedUri = uri;
         for (final LinkNormalizer normalizer : linkNormalizers) {
@@ -211,7 +200,7 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
     }
 
-    private boolean submit(final Page page) {
+    protected boolean submit(final Page page) {
 
         try {
             if (taskStatus.submit(page)) {
@@ -225,97 +214,4 @@ class CrawlerWebTaskController implements CrawlerWebTaskControllerMBean {
         }
     }
 
-    private void submitUri(final PageInfo pageInfo, final String uriAsText, final URI referer)
-            throws URISyntaxException {
-
-        final URI normalizedURI = new URI(normalizeUri(uriAsText));
-
-        if (!pageInfo.isDuplicatedLink(normalizedURI)) {
-            if (submit(new Page(normalizedURI, referer))) {
-                pageInfo.addNewUri(normalizedURI);
-            } else {
-                pageInfo.addVisitedUri(normalizedURI);
-            }
-        }
-    }
-
-    private void submitUrisFromDocument(final Document doc, final PageInfo pageInfo) {
-
-        // eval all variables, if one is present
-        BaseConfiguration configuration = new BaseConfiguration();
-        WebTaskUtil.populateVars(doc, getCrawlerBean().getVarBeanList(), configuration);
-
-        // retrieve all document links
-        for (final RegionSelectorBean regionSelectorBean : getCrawlerBean().getRegionSelectorList()) {
-
-            if (regionSelectorBean.getSelector() != null) {
-                // scan only this area
-                final Elements areas = doc.select(regionSelectorBean.getSelector());
-                for (final Element element : areas) {
-                    submitUrisFromElement(element, regionSelectorBean, pageInfo);
-                }
-            } else {
-                // scan the full document
-                submitUrisFromElement(doc, regionSelectorBean, pageInfo);
-            }
-        }
-
-        seedUrlsFromDocument(configuration, pageInfo);
-    }
-
-    private void seedUrlsFromDocument(final BaseConfiguration configuration, final PageInfo pageInfo) {
-
-        // generate new links
-        for (SeedBean seedBean : getCrawlerBean().getSeedBeanList()) {
-
-            String link = seedBean.getUrl();
-            try {
-
-                link = PropertyConverter.interpolate(seedBean.getUrl(), configuration).toString();
-
-                log.info("Seeding URL: {}", link);
-                final URI seedUri = pageInfo.getPage().getUri().resolve(link);
-
-                submitUri(pageInfo, seedUri.toString(), pageInfo.getPage().getUri());
-
-            } catch (final Throwable e) {
-                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", pageInfo.getPage().getUri(), link,
-                        e.getMessage());
-            }
-        }
-    }
-
-    private void submitUrisFromElement(final Element element, final RegionSelectorBean domSelectorBean,
-            final PageInfo pageInfo) {
-
-        final Elements links = element.select(domSelectorBean.getElement());
-
-        for (final Element link : links) {
-
-            String linkHref = null;
-            try {
-
-                linkHref = StringUtils.trimToEmpty(link.attr(domSelectorBean.getAttribute()));
-                if (StringUtils.isBlank(linkHref) || pageInfo.getIgnoredLinks().contains(linkHref)
-                        || exclude(linkHref, domSelectorBean.getExcludeLinksList())) {
-                    continue;
-                }
-
-                final URI linkUri = pageInfo.getPage().getUri().resolve(linkHref);
-                final String uriAsText = linkUri.toString();
-
-                if (uriAsText.matches(Context.get().interpolate(domSelectorBean.getFilter()))
-                        && !exclude(uriAsText, domSelectorBean.getExcludeUrlList())) {
-                    submitUri(pageInfo, uriAsText, pageInfo.getPage().getUri());
-                } else {
-                    pageInfo.addIgnoredUri(linkUri);
-                }
-
-            } catch (final Throwable e) {
-                log.warn("Document URL: {}, Link: {}, ERROR: {}", pageInfo.getPage().getUri(), linkHref,
-                        e.getMessage());
-                pageInfo.addIgnoredLink(linkHref);
-            }
-        }
-    }
 }
