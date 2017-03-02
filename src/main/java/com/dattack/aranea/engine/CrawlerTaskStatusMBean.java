@@ -15,23 +15,17 @@
  */
 package com.dattack.aranea.engine;
 
-import java.util.Set;
-
 /**
  * @author cvarela
  * @since 0.1
  */
 public interface CrawlerTaskStatusMBean {
 
-    Set<String> getVisitedUris(int start, int offset);
+    int getErrorUrisCounter();
 
-    Set<String> getPendingUris(int start, int offset);
-
-    Set<String> getErrorUris(int start, int offset);
-
-    int getVisitedUrisCounter();
+    int getFailedUrisCounter();
 
     int getPendingUrisCounter();
 
-    int getErrorUrisCounter();
+    int getVisitedUrisCounter();
 }

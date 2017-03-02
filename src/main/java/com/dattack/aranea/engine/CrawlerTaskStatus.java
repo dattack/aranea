@@ -15,10 +15,8 @@
  */
 package com.dattack.aranea.engine;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,12 +29,14 @@ public class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
     private final int maxErrors;
     private final Set<ResourceCoordinates> pendingUris;
     private final Set<ResourceCoordinates> visitedUris;
+    private final Set<ResourceCoordinates> failedUris;
     private final Map<ResourceCoordinates, Short> errorCounter;
 
     public CrawlerTaskStatus(final int maxErrors) {
         this.maxErrors = maxErrors;
         this.pendingUris = new HashSet<ResourceCoordinates>();
         this.visitedUris = new HashSet<ResourceCoordinates>();
+        this.failedUris = new HashSet<ResourceCoordinates>();
         this.errorCounter = new HashMap<ResourceCoordinates, Short>();
     }
 
@@ -56,18 +56,19 @@ public class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
     /*
      * Mark a page as visited.
      */
-    public void registerAsVisited(final ResourceCoordinates resourceCoordinates) {
+    public synchronized void registerAsVisited(final ResourceCoordinates resourceCoordinates) {
         this.visitedUris.add(resourceCoordinates);
         this.pendingUris.remove(resourceCoordinates);
-        errorCounter.remove(resourceCoordinates);
+        this.errorCounter.remove(resourceCoordinates);
     }
 
-    public void fail(final ResourceCoordinates resourceCoordinates) {
+    public synchronized void fail(final ResourceCoordinates resourceCoordinates) {
+        failedUris.add(resourceCoordinates);
         errorCounter.remove(resourceCoordinates);
         pendingUris.remove(resourceCoordinates);
     }
 
-    public boolean relaunch(final ResourceCoordinates resourceCoordinates) {
+    public synchronized boolean relaunch(final ResourceCoordinates resourceCoordinates) {
 
         int counter = incrErrorCounter(resourceCoordinates);
         boolean relaunch = counter < maxErrors;
@@ -81,66 +82,38 @@ public class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
         return relaunch;
     }
 
-    public boolean submit(final ResourceCoordinates resourceCoordinates) {
+    public synchronized boolean isCompleted() {
+        return pendingUris.isEmpty() && errorCounter.isEmpty() && !visitedUris.isEmpty();
+    }
 
-        if (!visitedUris.contains(resourceCoordinates) && !pendingUris.contains(resourceCoordinates)) {
+    public synchronized boolean submit(final ResourceCoordinates resourceCoordinates) {
+
+        if (isNew(resourceCoordinates)) {
             pendingUris.add(resourceCoordinates);
             return true;
         }
         return false;
     }
 
-    public Set<ResourceCoordinates> getErrorUris() {
-        return errorCounter.keySet();
+    private boolean isNew(final ResourceCoordinates resourceCoordinates) {
+        return !visitedUris.contains(resourceCoordinates) //
+                && !pendingUris.contains(resourceCoordinates) //
+                && !failedUris.contains(resourceCoordinates);
     }
 
     public int getErrorUrisCounter() {
         return errorCounter.size();
     }
 
-    public Set<ResourceCoordinates> getPendingUris() {
-        return pendingUris;
-    }
-
     public int getPendingUrisCounter() {
         return pendingUris.size();
-    }
-
-    public Set<ResourceCoordinates> getVisitedUris() {
-        return visitedUris;
     }
 
     public int getVisitedUrisCounter() {
         return visitedUris.size();
     }
-    
-    @Override
-    public Set<String> getVisitedUris(final int start, final int offset) {
 
-        return getUriSubset(getVisitedUris(), start, offset);
-    }
-
-    @Override
-    public Set<String> getErrorUris(final int start, final int offset) {
-
-        return getUriSubset(getErrorUris(), start, offset);
-    }
-
-    @Override
-    public Set<String> getPendingUris(final int start, final int offset) {
-
-        return getUriSubset(getPendingUris(), start, offset);
-    }
-    
-    private Set<String> getUriSubset(final Set<ResourceCoordinates> resources, final int start, final int offset) {
-
-        final List<ResourceCoordinates> pageList = new ArrayList<>(resources);
-
-        final Set<String> set = new HashSet<>();
-        int index = start;
-        while (index < resources.size() && index < start + offset) {
-            set.add(pageList.get(index++).getUri().toString());
-        }
-        return set;
+    public int getFailedUrisCounter() {
+        return failedUris.size();
     }
 }
