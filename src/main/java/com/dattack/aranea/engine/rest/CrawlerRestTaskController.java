@@ -32,12 +32,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.configuration.AbstractConfiguration;
+import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.appender.AbstractAppender;
 import com.dattack.aranea.beans.appender.FileAppender;
+import com.dattack.aranea.beans.jobs.Job;
+import com.dattack.aranea.beans.jobs.Param;
 import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.beans.rest.RestBean;
 import com.dattack.aranea.engine.Context;
@@ -56,15 +59,18 @@ import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
 public class CrawlerRestTaskController {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerRestTaskController.class);
-    
+
     private final RestBean restBean;
     private final Map<String, OutputStream> outputMapping;
     private final ThreadPoolExecutor executor;
     private final CrawlerTaskStatus crawlerStatus;
     private final Set<Object> resourceIdList;
+    private final Context context;
+    private final Object monitor = new Object();
 
-    public CrawlerRestTaskController(final RestBean restBean) {
+    public CrawlerRestTaskController(final RestBean restBean, final Job job) {
         this.restBean = restBean;
+        this.context = initContext(job);
         this.outputMapping = new HashMap<>();
         this.crawlerStatus = new CrawlerTaskStatus(3);
         this.executor = new ThreadPoolExecutor(restBean.getCrawlerBean().getThreadPoolSize(),
@@ -73,26 +79,52 @@ public class CrawlerRestTaskController {
         this.resourceIdList = new HashSet<>();
     }
 
+    private Context initContext(final Job job) {
+
+        Context c = new Context();
+        for (Param param : job.getParamList()) {
+            c.setProperty(param.getName(), param.getValue());
+        }
+
+        return c;
+    }
+
+    public Context getContext() {
+        return context;
+    }
+
     public void execute() {
 
         for (final String url : restBean.getCrawlerBean().getEntryPointList()) {
             try {
                 final ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
-                        new URI(Context.get().interpolate(url)));
+                        new URI(getContext().interpolate(url)));
                 submit(resourceCoordinates);
             } catch (URISyntaxException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
+
+//        try {
+//            synchronized (monitor) {
+//                monitor.wait();
+//            }
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
     }
 
     private void tryShutdown() {
-        
+
         if (crawlerStatus.isCompleted()) {
             log.info("Shutdown in progress");
             executor.shutdown();
             log.info("Shutdown completed");
+
+            synchronized (monitor) {
+                monitor.notifyAll();
+            }
         }
     }
 
@@ -109,7 +141,7 @@ public class CrawlerRestTaskController {
     private ResourceBean lookupResource(final String uri) {
 
         for (final ResourceBean item : restBean.getResourceBeanList()) {
-            final String pattern = Context.get().interpolate(item.getRegex());
+            final String pattern = getContext().interpolate(item.getRegex());
             if (uri.matches(pattern)) {
                 return item;
             }
@@ -141,11 +173,12 @@ public class CrawlerRestTaskController {
             if (appender instanceof FileAppender) {
                 final FileAppender fileAppender = (FileAppender) appender;
                 try {
+                    // TODO: code review
                     final StringBuilder sb = new StringBuilder()
-                            .append(ConfigurationUtil.interpolate(fileAppender.getPattern(), configuration))
+                            .append(getContext().interpolate(
+                                    ConfigurationUtil.interpolate(fileAppender.getPattern(), configuration)))
                             .append("\n");
-                    IOUtils.write(sb.toString(),
-                            getOutputStream(Context.get().interpolate(fileAppender.getFilename())));
+                    IOUtils.write(sb.toString(), getOutputStream(getContext().interpolate(fileAppender.getFilename())));
 
                 } catch (final IOException e) {
                     e.printStackTrace();

@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import com.dattack.aranea.beans.web.crawler.ExcludeBean;
 import com.dattack.aranea.beans.web.crawler.RegionSelectorBean;
 import com.dattack.aranea.beans.web.crawler.SeedBean;
-import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 import com.dattack.aranea.util.ThreadUtil;
@@ -84,10 +83,10 @@ class CrawlerWebTask implements Runnable {
         }
     }
 
-    private static boolean exclude(final String uri, final List<ExcludeBean> excludeBeanList) {
+    private boolean exclude(final String uri, final List<ExcludeBean> excludeBeanList) {
 
         for (final ExcludeBean bean : excludeBeanList) {
-            if (uri.matches(Context.get().interpolate(bean.getRegex()))) {
+            if (uri.matches(controller.getContext().interpolate(bean.getRegex()))) {
                 return true;
             }
         }
@@ -163,7 +162,7 @@ class CrawlerWebTask implements Runnable {
                 final URI linkUri = resourceCoordinates.getUri().resolve(linkHref);
                 final String uriAsText = linkUri.toString();
 
-                if (uriAsText.matches(Context.get().interpolate(domSelectorBean.getFilter()))
+                if (uriAsText.matches(controller.getContext().interpolate(domSelectorBean.getFilter()))
                         && !exclude(uriAsText, domSelectorBean.getExcludeUrlList())) {
                     submitUri(resourceDiscoveryStatus, uriAsText);
                 } else {

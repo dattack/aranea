@@ -12,12 +12,16 @@
  */
 package com.dattack.aranea.cli;
 
+import javax.xml.bind.JAXBException;
+
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.AbstractTaskBean;
 import com.dattack.aranea.beans.AraneaBean;
+import com.dattack.aranea.beans.jobs.Job;
+import com.dattack.aranea.beans.jobs.Jobs;
 import com.dattack.aranea.beans.rest.RestBean;
 import com.dattack.aranea.engine.rest.CrawlerRestEngine;
 import com.dattack.aranea.util.CommandLine;
@@ -33,19 +37,42 @@ public final class RestClient {
 
     private static final Logger log = LoggerFactory.getLogger(RestClient.class);
 
-    private static void execute(final String xmlConfigurationFilename, final String sourceName) throws Exception {
-
-        AraneaBean araneaBean = (AraneaBean) XmlParser.parse(AraneaBean.class, xmlConfigurationFilename);
-
-        CrawlerRestEngine crawlerEngine = new CrawlerRestEngine();
+    private static AbstractTaskBean getTask(final AraneaBean araneaBean, final String sourceName) throws Exception {
 
         for (AbstractTaskBean sourceBean : araneaBean.getTaskList()) {
 
             if (sourceName == null || sourceName.equalsIgnoreCase(sourceBean.getId())) {
-                log.info("Starting source '{}'", sourceBean.getId());
+                return sourceBean;
+            }
+        }
 
-                if (sourceBean instanceof RestBean) {
-                    crawlerEngine.submit((RestBean) sourceBean);
+        return null;
+    }
+
+    private static Jobs getJobs(final String jobsFilename) throws JAXBException {
+        if (StringUtils.isBlank(jobsFilename)) {
+            return null;
+        }
+        return (Jobs) XmlParser.parse(Jobs.class, jobsFilename);
+    }
+
+    private static void execute(final String xmlConfigurationFilename, final String sourceName,
+            final String jobsFilename) throws Exception {
+
+        AraneaBean araneaBean = (AraneaBean) XmlParser.parse(AraneaBean.class, xmlConfigurationFilename);
+        AbstractTaskBean task = getTask(araneaBean, sourceName);
+
+        if (task instanceof RestBean) {
+            
+            RestBean restBean = (RestBean) task;
+            Jobs jobs = getJobs(jobsFilename);
+            CrawlerRestEngine crawlerEngine = new CrawlerRestEngine();
+            
+            if (jobs == null) {
+                crawlerEngine.submit(restBean);
+            } else {
+                for (Job job: jobs.getJobList()) {
+                    crawlerEngine.submit(restBean, job);
                 }
             }
         }
@@ -58,11 +85,12 @@ public final class RestClient {
             CommandLine commandLine = new CommandLine(args);
             final String configurationFilename = commandLine.nextArg();
             final String sourceName = commandLine.nextArg();
+            final String jobsFilename = commandLine.nextArg();
 
-            if (StringUtils.isBlank(configurationFilename)) {
-                System.err.println("Usage: RestClient <configuration_file> [<source_name>]");
+            if (StringUtils.isBlank(configurationFilename) || StringUtils.isBlank(sourceName)) {
+                System.err.println("Usage: RestClient <configuration_file> <source_name> [<jobs_file>]");
             } else {
-                execute(configurationFilename, sourceName);
+                execute(configurationFilename, sourceName, jobsFilename);
             }
 
         } catch (final Throwable e) {

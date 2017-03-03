@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.HeaderBean;
 import com.dattack.aranea.beans.rest.ResourceBean;
-import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 import com.dattack.aranea.engine.ResourceObject;
@@ -112,7 +111,7 @@ class CrawlerRestTask implements Runnable {
             final String link = ObjectUtils.toString(bindings.get(URI_KEY));
             try {
 
-                ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(Context.get().interpolate(link)),
+                ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(controller.getContext().interpolate(link)),
                         resourceCoordinates.getUri());
                 if (controller.submit(linkCoordinates)) {
                     resourceDiscoveryStatus.addNewUri(linkCoordinates.getUri());

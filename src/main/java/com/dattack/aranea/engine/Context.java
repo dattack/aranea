@@ -35,17 +35,6 @@ public class Context {
     
     private final BaseConfiguration configuration;
     
-    private static ThreadLocal<Context> threadLocal = new ThreadLocal<Context>(){
-        @Override
-        protected Context initialValue() {
-            return new Context();
-        }
-    };
-    
-    public static Context get() {
-        return threadLocal.get();
-    }
-
     public Context() {
         configuration = new BaseConfiguration();
         configuration.append(ConfigurationUtil.createEnvSystemConfiguration());

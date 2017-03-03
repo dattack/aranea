@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.engine.rest;
+package com.dattack.aranea.beans.jobs;
 
-import com.dattack.aranea.beans.jobs.Job;
-import com.dattack.aranea.beans.rest.RestBean;
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlElement;
 
 /**
  * @author cvarela
  * @since 0.1
  */
-public class CrawlerRestEngine {
+public class Job {
 
-    public void submit(final RestBean restBean) {
-        submit(restBean, null);
-    }
+    @XmlElement(name = "param", required = true)
+    private List<Param> paramList;
 
-    public void submit(final RestBean restBean, final Job job) {
-        new CrawlerRestTaskController(restBean, job).execute();
+    public List<Param> getParamList() {
+        return paramList;
     }
 }

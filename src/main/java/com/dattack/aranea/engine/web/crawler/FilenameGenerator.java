@@ -43,12 +43,12 @@ public class FilenameGenerator {
     private final StorageBean storageBean;
     private Pattern urlRegExPattern;
 
-    public FilenameGenerator(final StorageBean storageBean) {
+    public FilenameGenerator(final StorageBean storageBean, final Context context) {
 
         this.storageBean = storageBean;
 
         if (StringUtils.isNotBlank(storageBean.getUrlRegEx())) {
-            this.urlRegExPattern = Pattern.compile(Context.get().interpolate(storageBean.getUrlRegEx()));
+            this.urlRegExPattern = Pattern.compile(context.interpolate(storageBean.getUrlRegEx()));
         }
     }
 

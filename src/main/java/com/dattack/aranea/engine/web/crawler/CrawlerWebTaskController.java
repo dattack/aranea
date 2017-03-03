@@ -53,13 +53,15 @@ class CrawlerWebTaskController {
     private final List<LinkNormalizer> linkNormalizers;
     private final CrawlerTaskStatus taskStatus;
     private final Repository repository;
+    private final Context context;
 
     public CrawlerWebTaskController(final WebBean sourceBean) {
 
         this.sourceBean = sourceBean;
-        this.repository = new Repository(Context.get().interpolate(sourceBean.getRepository()));
+        this.context = new Context();
+        this.repository = new Repository(getContext().interpolate(sourceBean.getRepository()));
         this.taskStatus = new CrawlerTaskStatus(MAX_ERRORS);
-        this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean());
+        this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean(), getContext());
         this.executor = new ThreadPoolExecutor(getCrawlerBean().getThreadPoolSize(),
                 getCrawlerBean().getThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue<Runnable>(),
                 new NamedThreadFactory(sourceBean.getId()));
@@ -75,12 +77,16 @@ class CrawlerWebTaskController {
             for (final String url : getCrawlerBean().getHomeList()) {
 
                 ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
-                        new URI(Context.get().interpolate(url)));
+                        new URI(getContext().interpolate(url)));
                 submit(resourceCoordinates);
             }
         } catch (final URISyntaxException e) {
             log.error(e.getMessage());
         }
+    }
+    
+    public Context getContext() {
+        return context;
     }
 
     protected CrawlerBean getCrawlerBean() {
