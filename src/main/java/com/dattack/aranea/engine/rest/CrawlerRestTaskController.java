@@ -105,14 +105,6 @@ public class CrawlerRestTaskController {
                 e.printStackTrace();
             }
         }
-
-//        try {
-//            synchronized (monitor) {
-//                monitor.wait();
-//            }
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
     }
 
     private void tryShutdown() {
@@ -173,10 +165,13 @@ public class CrawlerRestTaskController {
             if (appender instanceof FileAppender) {
                 final FileAppender fileAppender = (FileAppender) appender;
                 try {
-                    // TODO: code review
+                    final CompositeConfiguration compositeConfiguration = new CompositeConfiguration();
+                    compositeConfiguration.setDelimiterParsingDisabled(false);
+                    compositeConfiguration.addConfiguration(configuration);
+                    compositeConfiguration.addConfiguration(getContext().getConfiguration());
+
                     final StringBuilder sb = new StringBuilder()
-                            .append(getContext().interpolate(
-                                    ConfigurationUtil.interpolate(fileAppender.getPattern(), configuration)))
+                            .append(ConfigurationUtil.interpolate(fileAppender.getPattern(), compositeConfiguration))
                             .append("\n");
                     IOUtils.write(sb.toString(), getOutputStream(getContext().interpolate(fileAppender.getFilename())));
 

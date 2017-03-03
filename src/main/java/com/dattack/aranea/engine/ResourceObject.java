@@ -57,6 +57,7 @@ public class ResourceObject {
     public AbstractConfiguration compileConfiguration() {
 
         final BaseConfiguration configuration = new BaseConfiguration();
+        configuration.setDelimiterParsingDisabled(true);
 
         for (final Entry<String, Object> item : internalMap.entrySet()) {
             configuration.setProperty(item.getKey(), StringUtils.trimToEmpty(ObjectUtils.toString(item.getValue())));
