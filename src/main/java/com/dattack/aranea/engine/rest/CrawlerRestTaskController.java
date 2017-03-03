@@ -79,11 +79,13 @@ public class CrawlerRestTaskController {
         this.resourceIdList = new HashSet<>();
     }
 
-    private Context initContext(final Job job) {
+    private static Context initContext(final Job job) {
 
-        Context c = new Context();
-        for (Param param : job.getParamList()) {
-            c.setProperty(param.getName(), param.getValue());
+        final Context c = new Context();
+        if (job != null) {
+            for (final Param param : job.getParamList()) {
+                c.setProperty(param.getName(), param.getValue());
+            }
         }
 
         return c;
@@ -100,7 +102,7 @@ public class CrawlerRestTaskController {
                 final ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
                         new URI(getContext().interpolate(url)));
                 submit(resourceCoordinates);
-            } catch (URISyntaxException e) {
+            } catch (final URISyntaxException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
@@ -184,7 +186,7 @@ public class CrawlerRestTaskController {
 
     private synchronized boolean isUnique(final ResourceObject resource) {
 
-        Object id = resource.getId();
+        final Object id = resource.getId();
         if (id != null) {
             if (resourceIdList.contains(id)) {
                 return false;
@@ -197,7 +199,7 @@ public class CrawlerRestTaskController {
 
     private void handleResources(final ResourceBean resourceBean, final List<ResourceObject> resourceList) {
 
-        for (ResourceObject resource : resourceList) {
+        for (final ResourceObject resource : resourceList) {
 
             if (isUnique(resource)) {
                 notifyAppenders(resource.compileConfiguration(), resourceBean.getAppenders().getAppenderList());
