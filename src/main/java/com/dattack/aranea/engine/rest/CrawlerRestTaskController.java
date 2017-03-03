@@ -30,6 +30,8 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.CompositeConfiguration;
@@ -132,11 +134,13 @@ public class CrawlerRestTaskController {
         return outputStream;
     }
 
-    private ResourceBean lookupResource(final String uri) {
+    private ResourceBean resourceLookup(final String uri) {
 
         for (final ResourceBean item : restBean.getResourceBeanList()) {
-            final String pattern = getContext().interpolate(item.getRegex());
-            if (uri.matches(pattern)) {
+            
+            Pattern pattern = Pattern.compile(getContext().interpolate(item.getRegex()), Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(uri);
+            if (matcher.matches()) {
                 return item;
             }
         }
@@ -213,7 +217,7 @@ public class CrawlerRestTaskController {
         try {
             crawlerStatus.registerAsVisited(response.getRequest().getResourceCoordinates());
 
-            final ResourceBean resourceBean = lookupResource(
+            final ResourceBean resourceBean = resourceLookup(
                     response.getRequest().getResourceCoordinates().getUri().toString());
             if (resourceBean != null && resourceBean.hasAppenders()) {
                 handleResources(resourceBean, resources);
@@ -229,7 +233,7 @@ public class CrawlerRestTaskController {
     protected boolean submit(final ResourceCoordinates resourceCoordinates) {
         try {
 
-            final ResourceBean resourceBean = lookupResource(resourceCoordinates.getUri().toString());
+            final ResourceBean resourceBean = resourceLookup(resourceCoordinates.getUri().toString());
 
             if (resourceBean != null) {
                 if (crawlerStatus.submit(resourceCoordinates)) {
