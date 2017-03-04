@@ -27,6 +27,8 @@ import java.util.Map.Entry;
 import javax.script.Bindings;
 import javax.script.ScriptException;
 
+import org.apache.commons.configuration.AbstractConfiguration;
+import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpStatus;
@@ -42,6 +44,7 @@ import com.dattack.aranea.util.http.HttpResourceHelper;
 import com.dattack.aranea.util.http.HttpResourceRequest;
 import com.dattack.aranea.util.http.HttpResourceRequest.HttpResourceRequestBuilder;
 import com.dattack.aranea.util.http.HttpResourceResponse;
+import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
 import com.dattack.jtoolbox.script.JavaScriptEngine;
 
 /**
@@ -52,6 +55,9 @@ class CrawlerRestTask implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerRestTask.class);
 
+    private static final String RESOURCE_URI = "resource_uri";
+    private static final String RESOURCE_REFERER = "resource_referer";
+
     private static final String LINKS_KEY = "links";
     private static final String DATA_KEY = "data";
     private static final String METHOD_KEY = "method";
@@ -60,12 +66,26 @@ class CrawlerRestTask implements Runnable {
     private final ResourceCoordinates resourceCoordinates;
     private final CrawlerRestTaskController controller;
     private final ResourceBean resourceBean;
+    private final AbstractConfiguration configuration;
 
     public CrawlerRestTask(final ResourceCoordinates resourceCoordinates, final CrawlerRestTaskController controller,
             final ResourceBean resourceBean) {
         this.resourceCoordinates = resourceCoordinates;
         this.controller = controller;
         this.resourceBean = resourceBean;
+        // this.configuration = controller.getContext().getConfiguration();
+        this.configuration = new BaseConfiguration();
+        populateConfiguration();
+    }
+
+    private void populateConfiguration() {
+        
+        this.configuration.setProperty(RESOURCE_URI, resourceCoordinates.getUri().toString());
+        if (resourceCoordinates.getReferer() == null) {
+            this.configuration.setProperty(RESOURCE_REFERER, "");
+        } else {
+            this.configuration.setProperty(RESOURCE_REFERER, resourceCoordinates.getReferer().toString());
+        }
     }
 
     private List<ResourceObject> extractData(final Object obj) {
@@ -108,10 +128,11 @@ class CrawlerRestTask implements Runnable {
             // processHeader(item.get(HEADER_KEY));
 
             ObjectUtils.toString(bindings.get(METHOD_KEY));
-            final String link = ObjectUtils.toString(bindings.get(URI_KEY));
+            final String link = ConfigurationUtil.interpolate(ObjectUtils.toString(bindings.get(URI_KEY)),
+                    configuration);
             try {
 
-                ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(controller.getContext().interpolate(link)),
+                ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(link),
                         resourceCoordinates.getUri());
                 if (controller.submit(linkCoordinates)) {
                     resourceDiscoveryStatus.addNewUri(linkCoordinates.getUri());
