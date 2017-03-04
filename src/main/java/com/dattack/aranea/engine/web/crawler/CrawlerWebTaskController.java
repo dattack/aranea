@@ -76,7 +76,7 @@ class CrawlerWebTaskController {
         try {
             for (final String url : getCrawlerBean().getHomeList()) {
 
-                ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
+                final ResourceCoordinates resourceCoordinates = new ResourceCoordinates(
                         new URI(getContext().interpolate(url)));
                 submit(resourceCoordinates);
             }
@@ -84,7 +84,13 @@ class CrawlerWebTaskController {
             log.error(e.getMessage());
         }
     }
-    
+
+    void fail(final ResourceCoordinates resourceCoordinates) {
+
+        taskStatus.unrecoverable(resourceCoordinates);
+        tryShutdown();
+    }
+
     public Context getContext() {
         return context;
     }
@@ -104,7 +110,7 @@ class CrawlerWebTaskController {
     void handle(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Document doc) {
 
         try {
-            taskStatus.registerAsVisited(resourceDiscoveryStatus.getResourceCoordinates());
+            taskStatus.visited(resourceDiscoveryStatus.getResourceCoordinates());
 
             final String filename = filenameGenerator
                     .getFilename(resourceDiscoveryStatus.getResourceCoordinates().getUri());
@@ -128,21 +134,9 @@ class CrawlerWebTaskController {
         return normalizedUri;
     }
 
-    private void tryShutdown() {
-        if (taskStatus.getPendingUrisCounter() == 0) {
-            executor.shutdown();
-        }
-    }
-
-    void fail(final ResourceCoordinates resourceCoordinates) {
-
-        taskStatus.fail(resourceCoordinates);
-        tryShutdown();
-    }
-
     void relaunch(final ResourceCoordinates resourceCoordinates) {
 
-        final boolean relaunch = taskStatus.relaunch(resourceCoordinates);
+        final boolean relaunch = taskStatus.retry(resourceCoordinates);
         if (relaunch) {
             submit(resourceCoordinates);
         } else {
@@ -161,6 +155,12 @@ class CrawlerWebTaskController {
         } catch (final Throwable t) {
             t.printStackTrace();
             return false;
+        }
+    }
+
+    private void tryShutdown() {
+        if (taskStatus.isCompleted()) {
+            executor.shutdown();
         }
     }
 

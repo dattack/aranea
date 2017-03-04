@@ -16,16 +16,58 @@
 package com.dattack.aranea.engine;
 
 /**
+ * MBean that exposes the internal status of the crawling process.
+ *
  * @author cvarela
  * @since 0.1
  */
 public interface CrawlerTaskStatusMBean {
 
-    int getErrorUrisCounter();
-
-    int getFailedUrisCounter();
-
+    /**
+     * Returns the number of URIs in 'pending' state.
+     *
+     * @return the number of URIs in 'pending' state
+     */
     int getPendingUrisCounter();
 
+    /**
+     * Returns the number of URIs that ended with an error but a retry is still possible.
+     *
+     * @return the number of URIs that ended with an error but a retry is still possible
+     */
+    int getRecoverableUrisCounter();
+
+    /**
+     * Returns the number of URIs that ended with an fatal error and a retry isn't possible.
+     *
+     * @return the number of URIs that ended with an fatal error and a retry isn't possible
+     */
+    int getUnrecoverableUrisCounter();
+
+    /**
+     * Returns the number of URIs visited and completed successfully.
+     *
+     * @return the number of URIs visited and completed successfully
+     */
     int getVisitedUrisCounter();
+
+    /**
+     * Logs the URIs in 'pending' state.
+     */
+    void logPendingUris();
+
+    /**
+     * Logs the URIs that ended with an error but a retry is still possible.
+     */
+    void logRecoverableUris();
+
+    /**
+     * Logs the URIs that ended with an fatal error and a retry isn't possible.
+     */
+    void logUnrecoverableUris();
+
+    /**
+     * Logs the URIs visited and completed successfully.
+     */
+    void logVisitedUris();
 }

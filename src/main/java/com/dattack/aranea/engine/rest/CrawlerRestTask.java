@@ -40,6 +40,7 @@ import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 import com.dattack.aranea.engine.ResourceObject;
+import com.dattack.aranea.util.ThreadUtil;
 import com.dattack.aranea.util.http.HttpResourceHelper;
 import com.dattack.aranea.util.http.HttpResourceRequest;
 import com.dattack.aranea.util.http.HttpResourceRequest.HttpResourceRequestBuilder;
@@ -78,14 +79,22 @@ class CrawlerRestTask implements Runnable {
         populateConfiguration();
     }
 
-    private void populateConfiguration() {
-        
-        this.configuration.setProperty(RESOURCE_URI, resourceCoordinates.getUri().toString());
-        if (resourceCoordinates.getReferer() == null) {
-            this.configuration.setProperty(RESOURCE_REFERER, "");
-        } else {
-            this.configuration.setProperty(RESOURCE_REFERER, resourceCoordinates.getReferer().toString());
+    private HttpResourceRequest createRequest() {
+
+        final HttpResourceRequestBuilder builder = new HttpResourceRequestBuilder(resourceCoordinates);
+
+        for (final HeaderBean headerBean : resourceBean.getHeaders().getHeaderList()) {
+            builder.withHeader(headerBean.getName(), headerBean.getValue());
         }
+        return builder.build();
+    }
+
+    private Object evalJavascript(final String json) throws ScriptException {
+
+        final Map<Object, Object> params = new HashMap<>();
+        params.put("data", json);
+
+        return JavaScriptEngine.eval(resourceBean.getScript(), params);
     }
 
     private List<ResourceObject> extractData(final Object obj) {
@@ -119,67 +128,21 @@ class CrawlerRestTask implements Runnable {
         return null;
     }
 
-    private void submitLinkItem(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Object obj) {
+    private void populateConfiguration() {
 
-        if (obj != null && obj instanceof Bindings) {
-            final Bindings bindings = (Bindings) obj;
-
-            // TODO: process headers
-            // processHeader(item.get(HEADER_KEY));
-
-            ObjectUtils.toString(bindings.get(METHOD_KEY));
-            final String link = ConfigurationUtil.interpolate(ObjectUtils.toString(bindings.get(URI_KEY)),
-                    configuration);
-            try {
-
-                ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(link),
-                        resourceCoordinates.getUri());
-                if (controller.submit(linkCoordinates)) {
-                    resourceDiscoveryStatus.addNewUri(linkCoordinates.getUri());
-                } else {
-                    resourceDiscoveryStatus.addAlreadyVisited(linkCoordinates.getUri());
-                }
-            } catch (URISyntaxException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+        this.configuration.setProperty(RESOURCE_URI, resourceCoordinates.getUri().toString());
+        if (resourceCoordinates.getReferer() == null) {
+            this.configuration.setProperty(RESOURCE_REFERER, "");
+        } else {
+            this.configuration.setProperty(RESOURCE_REFERER, resourceCoordinates.getReferer().toString());
         }
-    }
-
-    private ResourceDiscoveryStatus submitLinks(final Object obj) {
-
-        ResourceDiscoveryStatus resourceDiscoveryStatus = new ResourceDiscoveryStatus(resourceCoordinates);
-        if (obj != null && obj instanceof Bindings) {
-            final Bindings bindings = (Bindings) obj;
-            for (final Entry<String, Object> entry : bindings.entrySet()) {
-                submitLinkItem(resourceDiscoveryStatus, entry.getValue());
-            }
-        }
-        return resourceDiscoveryStatus;
-    }
-
-    private HttpResourceRequest createRequest() {
-
-        HttpResourceRequestBuilder builder = new HttpResourceRequestBuilder(resourceCoordinates);
-
-        for (final HeaderBean headerBean : resourceBean.getHeaders().getHeaderList()) {
-            builder.withHeader(headerBean.getName(), headerBean.getValue());
-        }
-        return builder.build();
-    }
-
-    private Object evalJavascript(final String json) throws ScriptException {
-
-        final Map<Object, Object> params = new HashMap<>();
-        params.put("data", json);
-
-        return JavaScriptEngine.eval(resourceBean.getScript(), params);
     }
 
     @Override
     public void run() {
 
-        // ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
+        // TODO: set a proper latency time
+        ThreadUtil.sleep(1000);
 
         log.info("GET {}", resourceCoordinates.getUri());
 
@@ -221,15 +184,54 @@ class CrawlerRestTask implements Runnable {
                 controller.fail(resourceCoordinates);
             }
 
-        } catch (IOException e) {
+        } catch (final IOException e) {
 
             log.warn("{}: {}", e.getMessage(), resourceCoordinates.toString());
             controller.relaunch(resourceCoordinates);
 
-        } catch (ScriptException e) {
+        } catch (final ScriptException e) {
 
             log.error("{}: {}", e.getMessage(), resourceCoordinates.toString());
             controller.fail(resourceCoordinates);
         }
+    }
+
+    private void submitLinkItem(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Object obj) {
+
+        if (obj != null && obj instanceof Bindings) {
+            final Bindings bindings = (Bindings) obj;
+
+            // TODO: process headers
+            // processHeader(item.get(HEADER_KEY));
+
+            ObjectUtils.toString(bindings.get(METHOD_KEY));
+            final String link = ConfigurationUtil.interpolate(ObjectUtils.toString(bindings.get(URI_KEY)),
+                    configuration);
+            try {
+
+                final ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(link),
+                        resourceCoordinates.getUri());
+                if (controller.submit(linkCoordinates)) {
+                    resourceDiscoveryStatus.addNewUri(linkCoordinates.getUri());
+                } else {
+                    resourceDiscoveryStatus.addAlreadyVisited(linkCoordinates.getUri());
+                }
+            } catch (final URISyntaxException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private ResourceDiscoveryStatus submitLinks(final Object obj) {
+
+        final ResourceDiscoveryStatus resourceDiscoveryStatus = new ResourceDiscoveryStatus(resourceCoordinates);
+        if (obj != null && obj instanceof Bindings) {
+            final Bindings bindings = (Bindings) obj;
+            for (final Entry<String, Object> entry : bindings.entrySet()) {
+                submitLinkItem(resourceDiscoveryStatus, entry.getValue());
+            }
+        }
+        return resourceDiscoveryStatus;
     }
 }

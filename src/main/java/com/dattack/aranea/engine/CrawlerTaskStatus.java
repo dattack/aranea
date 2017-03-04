@@ -18,72 +18,153 @@ package com.dattack.aranea.engine;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author cvarela
  * @since 0.1
  */
-public class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
+public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
 
-    private final int maxErrors;
+    private static final Logger log = LoggerFactory.getLogger(CrawlerTaskStatus.class);
+
+    private final int maxRetries;
+
+    // set of URIs to be visited
     private final Set<ResourceCoordinates> pendingUris;
-    private final Set<ResourceCoordinates> visitedUris;
-    private final Set<ResourceCoordinates> failedUris;
-    private final Map<ResourceCoordinates, Short> errorCounter;
 
-    public CrawlerTaskStatus(final int maxErrors) {
-        this.maxErrors = maxErrors;
-        this.pendingUris = new HashSet<ResourceCoordinates>();
-        this.visitedUris = new HashSet<ResourceCoordinates>();
-        this.failedUris = new HashSet<ResourceCoordinates>();
-        this.errorCounter = new HashMap<ResourceCoordinates, Short>();
+    // set of URIs already visited
+    private final Set<ResourceCoordinates> visitedUris;
+
+    // set of URIs that have ended in an unrecoverable error
+    private final Set<ResourceCoordinates> unrecoverableUris;
+
+    // map with the number of retries performed for each URI that ended with a recoverable error
+    private final Map<ResourceCoordinates, Short> retriesMap;
+
+    /**
+     * @param maxRetries
+     *            the maximum number of retries to be performed
+     */
+    public CrawlerTaskStatus(final int maxRetries) {
+        this.maxRetries = maxRetries;
+        this.pendingUris = new HashSet<>();
+        this.visitedUris = new HashSet<>();
+        this.unrecoverableUris = new HashSet<>();
+        this.retriesMap = new HashMap<>();
     }
 
-    private int incrErrorCounter(final ResourceCoordinates resourceCoordinates) {
+    @Override
+    public int getPendingUrisCounter() {
+        return pendingUris.size();
+    }
 
-        Short counter = errorCounter.get(resourceCoordinates);
+    @Override
+    public int getRecoverableUrisCounter() {
+        return retriesMap.size();
+    }
+
+    @Override
+    public int getUnrecoverableUrisCounter() {
+        return unrecoverableUris.size();
+    }
+
+    @Override
+    public int getVisitedUrisCounter() {
+        return visitedUris.size();
+    }
+
+    private int incrRetriesCounter(final ResourceCoordinates resourceCoordinates) {
+
+        Short counter = retriesMap.get(resourceCoordinates);
         if (counter == null) {
             counter = 1;
         } else {
             counter++;
         }
 
-        errorCounter.put(resourceCoordinates, counter);
+        retriesMap.put(resourceCoordinates, counter);
         return counter;
     }
 
-    /*
-     * Mark a page as visited.
+    /**
+     * A task crawler is complete when there are no resources to be visited, there are no resources that need to be
+     * retry access and at least one resource has been visited.
+     *
+     * @return true if the task is completed
      */
-    public synchronized void registerAsVisited(final ResourceCoordinates resourceCoordinates) {
-        this.visitedUris.add(resourceCoordinates);
-        this.pendingUris.remove(resourceCoordinates);
-        this.errorCounter.remove(resourceCoordinates);
+    public synchronized boolean isCompleted() {
+        return pendingUris.isEmpty() && retriesMap.isEmpty() && !visitedUris.isEmpty();
     }
 
-    public synchronized void fail(final ResourceCoordinates resourceCoordinates) {
-        failedUris.add(resourceCoordinates);
-        errorCounter.remove(resourceCoordinates);
-        pendingUris.remove(resourceCoordinates);
+    private boolean isNew(final ResourceCoordinates resourceCoordinates) {
+        return !visitedUris.contains(resourceCoordinates) //
+                && !pendingUris.contains(resourceCoordinates) //
+                && !unrecoverableUris.contains(resourceCoordinates);
     }
 
-    public synchronized boolean relaunch(final ResourceCoordinates resourceCoordinates) {
+    @Override
+    public void logPendingUris() {
 
-        int counter = incrErrorCounter(resourceCoordinates);
-        boolean relaunch = counter < maxErrors;
+        log.info("Number of URIs at pending status: {}", pendingUris.size());
+        for (final ResourceCoordinates resource : pendingUris) {
+            log.info("Not visited URI: {}", resource.getUri());
+        }
+    }
 
-        if (!relaunch) {
-            fail(resourceCoordinates);
-        } else {
-            pendingUris.remove(resourceCoordinates);
+    @Override
+    public void logRecoverableUris() {
+
+        log.info("Number of recoverable URIs: {}", retriesMap.size());
+        for (final Entry<ResourceCoordinates, Short> entry : retriesMap.entrySet()) {
+            log.info("Recoverable URI (#Retries: {}): {}", entry.getValue(), entry.getKey().getUri());
+        }
+    }
+
+    @Override
+    public void logUnrecoverableUris() {
+
+        log.info("Number of unrecoverable URIs: {}", unrecoverableUris.size());
+        for (final ResourceCoordinates resource : unrecoverableUris) {
+            log.info("Unrecoverable URI: {}", resource.getUri());
+        }
+    }
+
+    @Override
+    public void logVisitedUris() {
+
+        log.info("Number of visited URIs: {}", visitedUris.size());
+        for (final ResourceCoordinates resource : visitedUris) {
+            log.info("Visited URI: {}", resource.getUri());
+        }
+    }
+
+    /**
+     * Checks that the maximum number of retries has already been reached or it is still possible to retry a new access
+     * to a resource.
+     *
+     * @param resourceCoordinates
+     *            the resource to retry
+     * @return <tt>true</tt> if a retry is possible; <tt>false</tt> otherwise
+     */
+    public synchronized boolean retry(final ResourceCoordinates resourceCoordinates) {
+
+        if (unrecoverableUris.contains(resourceCoordinates) || visitedUris.contains(resourceCoordinates)) {
+            return false;
         }
 
-        return relaunch;
-    }
+        if (incrRetriesCounter(resourceCoordinates) < maxRetries) {
+            pendingUris.remove(resourceCoordinates);
+            return true;
+        }
 
-    public synchronized boolean isCompleted() {
-        return pendingUris.isEmpty() && errorCounter.isEmpty() && !visitedUris.isEmpty();
+        // max retries reached
+        unrecoverable(resourceCoordinates);
+        return false;
     }
 
     public synchronized boolean submit(final ResourceCoordinates resourceCoordinates) {
@@ -95,25 +176,18 @@ public class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
         return false;
     }
 
-    private boolean isNew(final ResourceCoordinates resourceCoordinates) {
-        return !visitedUris.contains(resourceCoordinates) //
-                && !pendingUris.contains(resourceCoordinates) //
-                && !failedUris.contains(resourceCoordinates);
+    public synchronized void unrecoverable(final ResourceCoordinates resourceCoordinates) {
+        unrecoverableUris.add(resourceCoordinates);
+        retriesMap.remove(resourceCoordinates);
+        pendingUris.remove(resourceCoordinates);
     }
 
-    public int getErrorUrisCounter() {
-        return errorCounter.size();
-    }
-
-    public int getPendingUrisCounter() {
-        return pendingUris.size();
-    }
-
-    public int getVisitedUrisCounter() {
-        return visitedUris.size();
-    }
-
-    public int getFailedUrisCounter() {
-        return failedUris.size();
+    /*
+     * Mark a page as visited.
+     */
+    public synchronized void visited(final ResourceCoordinates resourceCoordinates) {
+        this.visitedUris.add(resourceCoordinates);
+        this.pendingUris.remove(resourceCoordinates);
+        this.retriesMap.remove(resourceCoordinates);
     }
 }

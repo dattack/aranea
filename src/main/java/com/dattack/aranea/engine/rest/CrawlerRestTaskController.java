@@ -72,6 +72,18 @@ public class CrawlerRestTaskController {
     private final Context context;
     private final Object monitor = new Object();
 
+    private static Context initContext(final Job job) {
+
+        final Context c = new Context();
+        if (job != null) {
+            for (final Param param : job.getParamList()) {
+                c.setProperty(param.getName(), param.getValue());
+            }
+        }
+
+        return c;
+    }
+
     public CrawlerRestTaskController(final RestBean restBean, final Job job) {
         this.restBean = restBean;
         this.context = initContext(job);
@@ -88,22 +100,6 @@ public class CrawlerRestTaskController {
                         restBean.getId())));
     }
 
-    private static Context initContext(final Job job) {
-
-        final Context c = new Context();
-        if (job != null) {
-            for (final Param param : job.getParamList()) {
-                c.setProperty(param.getName(), param.getValue());
-            }
-        }
-
-        return c;
-    }
-
-    public Context getContext() {
-        return context;
-    }
-
     public void execute() {
 
         for (final String url : restBean.getCrawlerBean().getEntryPointList()) {
@@ -118,17 +114,14 @@ public class CrawlerRestTaskController {
         }
     }
 
-    private void tryShutdown() {
+    protected void fail(final ResourceCoordinates resourceCoordinates) {
 
-        if (crawlerStatus.isCompleted()) {
-            log.info("Shutdown in progress");
-            executor.shutdown();
-            log.info("Shutdown completed");
+        crawlerStatus.unrecoverable(resourceCoordinates);
+        tryShutdown();
+    }
 
-            synchronized (monitor) {
-                monitor.notifyAll();
-            }
-        }
+    public Context getContext() {
+        return context;
     }
 
     private synchronized OutputStream getOutputStream(final String path) throws IOException {
@@ -142,34 +135,46 @@ public class CrawlerRestTaskController {
         return outputStream;
     }
 
-    private ResourceBean resourceLookup(final String uri) {
+    protected void handle(final HttpResourceResponse response, final ResourceDiscoveryStatus resourceDiscoveryStatus,
+            final List<ResourceObject> resources) {
 
-        for (final ResourceBean item : restBean.getResourceBeanList()) {
+        try {
+            crawlerStatus.visited(response.getRequest().getResourceCoordinates());
 
-            Pattern pattern = Pattern.compile(getContext().interpolate(item.getRegex()), Pattern.CASE_INSENSITIVE);
-            Matcher matcher = pattern.matcher(uri);
-            if (matcher.matches()) {
-                return item;
+            final ResourceBean resourceBean = resourceLookup(
+                    response.getRequest().getResourceCoordinates().getUri().toString());
+            if (resourceBean != null && resourceBean.hasAppenders()) {
+                handleResources(resourceBean, resources);
             }
-        }
 
-        return null;
-    }
-
-    protected void fail(final ResourceCoordinates resourceCoordinates) {
-
-        crawlerStatus.fail(resourceCoordinates);
-        tryShutdown();
-    }
-
-    protected void relaunch(final ResourceCoordinates resourceCoordinates) {
-
-        final boolean relaunch = crawlerStatus.relaunch(resourceCoordinates);
-        if (relaunch) {
-            submit(resourceCoordinates);
-        } else {
+        } catch (final Exception e) {
+            relaunch(response.getRequest().getResourceCoordinates());
+        } finally {
             tryShutdown();
         }
+    }
+
+    private void handleResources(final ResourceBean resourceBean, final List<ResourceObject> resourceList) {
+
+        for (final ResourceObject resource : resourceList) {
+
+            if (isUnique(resource)) {
+                notifyAppenders(resource.compileConfiguration(), resourceBean.getAppenders().getAppenderList());
+            }
+        }
+    }
+
+    private synchronized boolean isUnique(final ResourceObject resource) {
+
+        final Object id = resource.getId();
+        if (id != null) {
+            if (resourceIdList.contains(id)) {
+                return false;
+            }
+
+            resourceIdList.add(id);
+        }
+        return true;
     }
 
     private void notifyAppenders(final AbstractConfiguration configuration, final List<AbstractAppender> appenderList) {
@@ -196,46 +201,29 @@ public class CrawlerRestTaskController {
         }
     }
 
-    private synchronized boolean isUnique(final ResourceObject resource) {
+    protected void relaunch(final ResourceCoordinates resourceCoordinates) {
 
-        final Object id = resource.getId();
-        if (id != null) {
-            if (resourceIdList.contains(id)) {
-                return false;
-            }
-
-            resourceIdList.add(id);
-        }
-        return true;
-    }
-
-    private void handleResources(final ResourceBean resourceBean, final List<ResourceObject> resourceList) {
-
-        for (final ResourceObject resource : resourceList) {
-
-            if (isUnique(resource)) {
-                notifyAppenders(resource.compileConfiguration(), resourceBean.getAppenders().getAppenderList());
-            }
-        }
-    }
-
-    protected void handle(final HttpResourceResponse response, final ResourceDiscoveryStatus resourceDiscoveryStatus,
-            final List<ResourceObject> resources) {
-
-        try {
-            crawlerStatus.registerAsVisited(response.getRequest().getResourceCoordinates());
-
-            final ResourceBean resourceBean = resourceLookup(
-                    response.getRequest().getResourceCoordinates().getUri().toString());
-            if (resourceBean != null && resourceBean.hasAppenders()) {
-                handleResources(resourceBean, resources);
-            }
-
-        } catch (final Exception e) {
-            relaunch(response.getRequest().getResourceCoordinates());
-        } finally {
+        final boolean relaunch = crawlerStatus.retry(resourceCoordinates);
+        if (relaunch) {
+            submit(resourceCoordinates);
+        } else {
             tryShutdown();
         }
+    }
+
+    private ResourceBean resourceLookup(final String uri) {
+
+        for (final ResourceBean item : restBean.getResourceBeanList()) {
+
+            final Pattern pattern = Pattern.compile(getContext().interpolate(item.getRegex()),
+                    Pattern.CASE_INSENSITIVE);
+            final Matcher matcher = pattern.matcher(uri);
+            if (matcher.matches()) {
+                return item;
+            }
+        }
+
+        return null;
     }
 
     protected boolean submit(final ResourceCoordinates resourceCoordinates) {
@@ -256,6 +244,19 @@ public class CrawlerRestTaskController {
 
         } finally {
             tryShutdown();
+        }
+    }
+
+    private void tryShutdown() {
+
+        if (!executor.isShutdown() && crawlerStatus.isCompleted()) {
+            log.info("Shutdown in progress");
+            // executor.shutdown();
+            log.info("Shutdown completed");
+
+            synchronized (monitor) {
+                monitor.notifyAll();
+            }
         }
     }
 }
