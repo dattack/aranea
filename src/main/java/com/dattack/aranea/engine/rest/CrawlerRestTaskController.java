@@ -16,7 +16,6 @@
 package com.dattack.aranea.engine.rest;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -35,6 +34,8 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.configuration.AbstractConfiguration;
 import org.apache.commons.configuration.CompositeConfiguration;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ import com.dattack.aranea.engine.CrawlerTaskStatus;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 import com.dattack.aranea.engine.ResourceObject;
+import com.dattack.aranea.util.JmxUtil;
 import com.dattack.aranea.util.NamedThreadFactory;
 import com.dattack.aranea.util.http.HttpResourceResponse;
 import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
@@ -79,6 +81,11 @@ public class CrawlerRestTaskController {
                 restBean.getCrawlerBean().getThreadPoolSize(), 1L, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(restBean.getId()));
         this.resourceIdList = new HashSet<>();
+
+        JmxUtil.registerMBean(crawlerStatus,
+                JmxUtil.createObjectName(String.format("com.dattack.aranea.rest:type=%s,name=%s", //
+                        crawlerStatus.getClass().getSimpleName(), //
+                        restBean.getId())));
     }
 
     private static Context initContext(final Job job) {
@@ -124,10 +131,11 @@ public class CrawlerRestTaskController {
         }
     }
 
-    private synchronized OutputStream getOutputStream(final String path) throws FileNotFoundException {
+    private synchronized OutputStream getOutputStream(final String path) throws IOException {
 
         OutputStream outputStream = outputMapping.get(path);
         if (outputStream == null) {
+            FileUtils.forceMkdir(new File(FilenameUtils.getPath(path)));
             outputStream = new FileOutputStream(new File(path));
             outputMapping.put(path, outputStream);
         }
@@ -137,7 +145,7 @@ public class CrawlerRestTaskController {
     private ResourceBean resourceLookup(final String uri) {
 
         for (final ResourceBean item : restBean.getResourceBeanList()) {
-            
+
             Pattern pattern = Pattern.compile(getContext().interpolate(item.getRegex()), Pattern.CASE_INSENSITIVE);
             Matcher matcher = pattern.matcher(uri);
             if (matcher.matches()) {
@@ -240,6 +248,8 @@ public class CrawlerRestTaskController {
                     executor.submit(new CrawlerRestTask(resourceCoordinates, this, resourceBean));
                     return true;
                 }
+            } else {
+                log.warn("Resource not configured for URL: {}", resourceCoordinates.getUri().toString());
             }
 
             return false;
