@@ -58,31 +58,6 @@ class CrawlerWebTask implements Runnable {
         this.controller = controller;
     }
 
-    @Override
-    public void run() {
-
-        ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
-
-        log.info("GET {}", resourceCoordinates.getUri());
-
-        try {
-
-            HttpResourceRequest request = new HttpResourceRequestBuilder(resourceCoordinates).build();
-            HttpResourceResponse resource = HttpResourceHelper.get(request);
-            Document document = Parser.parse(resource.getData(), resourceCoordinates.getUri().toString());
-
-            ResourceDiscoveryStatus resourceDiscoveryStatus = submitUrisFromDocument(document);
-
-            controller.handle(resourceDiscoveryStatus, document);
-
-        } catch (IOException e) {
-
-            log.warn("{}: {} (Referer: {})", e.getMessage(), resourceCoordinates.getUri(),
-                    resourceCoordinates.getReferer());
-            controller.fail(resourceCoordinates);
-        }
-    }
-
     private boolean exclude(final String uri, final List<ExcludeBean> excludeBeanList) {
 
         for (final ExcludeBean bean : excludeBeanList) {
@@ -93,11 +68,73 @@ class CrawlerWebTask implements Runnable {
         return false;
     }
 
+    @Override
+    public void run() {
+
+        ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
+
+        log.info("GET {}", resourceCoordinates.getUri());
+
+        try {
+
+            final HttpResourceRequest request = new HttpResourceRequestBuilder(resourceCoordinates).build();
+            final HttpResourceResponse resource = HttpResourceHelper.get(request);
+            final Document document = Parser.parse(resource.getData(), resourceCoordinates.getUri().toString());
+
+            final ResourceDiscoveryStatus resourceDiscoveryStatus = submitUrisFromDocument(document);
+
+            controller.handle(resourceDiscoveryStatus, document);
+
+        } catch (final IOException e) {
+
+            log.warn("{}: {} (Referer: {})", e.getMessage(), resourceCoordinates.getUri(),
+                    resourceCoordinates.getReferer());
+            controller.unrecoverable(resourceCoordinates);
+        }
+    }
+
+    private void seedUrlsFromDocument(final ResourceDiscoveryStatus resourceDiscoveryStatus,
+            final BaseConfiguration configuration) {
+
+        // generate new links
+        for (final SeedBean seedBean : controller.getCrawlerBean().getSeedBeanList()) {
+
+            String link = seedBean.getUrl();
+            try {
+
+                link = PropertyConverter.interpolate(seedBean.getUrl(), configuration).toString();
+
+                log.info("Seeding URL: {}", link);
+                final URI seedUri = resourceCoordinates.getUri().resolve(link);
+
+                submitUri(resourceDiscoveryStatus, seedUri.toString());
+
+            } catch (final Throwable e) {
+                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", resourceCoordinates.getUri(), link,
+                        e.getMessage());
+            }
+        }
+    }
+
+    private void submitUri(final ResourceDiscoveryStatus resourceDiscoveryStatus, final String uriAsText)
+            throws URISyntaxException {
+
+        final URI normalizedURI = new URI(controller.normalizeUri(uriAsText));
+
+        if (!resourceDiscoveryStatus.isDuplicatedLink(normalizedURI)) {
+            if (controller.submit(new ResourceCoordinates(normalizedURI, resourceCoordinates.getUri()))) {
+                resourceDiscoveryStatus.addNewUri(normalizedURI);
+            } else {
+                resourceDiscoveryStatus.addAlreadyVisited(normalizedURI);
+            }
+        }
+    }
+
     private ResourceDiscoveryStatus submitUrisFromDocument(final Document doc) {
 
-        ResourceDiscoveryStatus resourceDiscoveryStatus = new ResourceDiscoveryStatus(resourceCoordinates);
+        final ResourceDiscoveryStatus resourceDiscoveryStatus = new ResourceDiscoveryStatus(resourceCoordinates);
         // eval all variables, if one is present
-        BaseConfiguration configuration = new BaseConfiguration();
+        final BaseConfiguration configuration = new BaseConfiguration();
         WebTaskUtil.populateVars(doc, controller.getCrawlerBean().getVarBeanList(), configuration);
 
         // retrieve all document links
@@ -118,29 +155,6 @@ class CrawlerWebTask implements Runnable {
         seedUrlsFromDocument(resourceDiscoveryStatus, configuration);
 
         return resourceDiscoveryStatus;
-    }
-
-    private void seedUrlsFromDocument(final ResourceDiscoveryStatus resourceDiscoveryStatus,
-            final BaseConfiguration configuration) {
-
-        // generate new links
-        for (SeedBean seedBean : controller.getCrawlerBean().getSeedBeanList()) {
-
-            String link = seedBean.getUrl();
-            try {
-
-                link = PropertyConverter.interpolate(seedBean.getUrl(), configuration).toString();
-
-                log.info("Seeding URL: {}", link);
-                final URI seedUri = resourceCoordinates.getUri().resolve(link);
-
-                submitUri(resourceDiscoveryStatus, seedUri.toString());
-
-            } catch (final Throwable e) {
-                log.warn("Document URL: {}, Child URL: {}, ERROR: {}", resourceCoordinates.getUri(), link,
-                        e.getMessage());
-            }
-        }
     }
 
     private void submitUrisFromElement(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Element element,
@@ -173,20 +187,6 @@ class CrawlerWebTask implements Runnable {
                 log.warn("Document URL: {}, Link: {}, ERROR: {}", resourceCoordinates.getUri(), linkHref,
                         e.getMessage());
                 resourceDiscoveryStatus.addIgnoredLink(linkHref);
-            }
-        }
-    }
-
-    private void submitUri(final ResourceDiscoveryStatus resourceDiscoveryStatus, final String uriAsText)
-            throws URISyntaxException {
-
-        final URI normalizedURI = new URI(controller.normalizeUri(uriAsText));
-
-        if (!resourceDiscoveryStatus.isDuplicatedLink(normalizedURI)) {
-            if (controller.submit(new ResourceCoordinates(normalizedURI, resourceCoordinates.getUri()))) {
-                resourceDiscoveryStatus.addNewUri(normalizedURI);
-            } else {
-                resourceDiscoveryStatus.addAlreadyVisited(normalizedURI);
             }
         }
     }

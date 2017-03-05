@@ -21,7 +21,7 @@ package com.dattack.aranea.engine;
  * @author cvarela
  * @since 0.1
  */
-public interface CrawlerTaskStatusMBean {
+public interface CrawlerTaskControllerMBean {
 
     /**
      * Returns the number of URIs in 'pending' state.

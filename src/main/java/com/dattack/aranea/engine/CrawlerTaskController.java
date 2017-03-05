@@ -20,17 +20,22 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.dattack.aranea.util.NamedThreadFactory;
 
 /**
  * @author cvarela
  * @since 0.1
  */
-public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
+public abstract class CrawlerTaskController implements CrawlerTaskControllerMBean {
 
-    private static final Logger log = LoggerFactory.getLogger(CrawlerTaskStatus.class);
+    private static final Logger log = LoggerFactory.getLogger(CrawlerTaskController.class);
 
     private final int maxRetries;
 
@@ -46,35 +51,46 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
     // map with the number of retries performed for each URI that ended with a recoverable error
     private final Map<ResourceCoordinates, Short> retriesMap;
 
+    private final ThreadPoolExecutor threadPoolExecutor;
+
     /**
      * @param maxRetries
      *            the maximum number of retries to be performed
+     * @param poolSize
+     *            the number of threads to allow in the pool
+     * @param threadPrefix
+     *            the prefix to named the threads
      */
-    public CrawlerTaskStatus(final int maxRetries) {
+    public CrawlerTaskController(final int maxRetries, final int poolSize, final String threadPrefix) {
         this.maxRetries = maxRetries;
         this.pendingUris = new HashSet<>();
         this.visitedUris = new HashSet<>();
         this.unrecoverableUris = new HashSet<>();
         this.retriesMap = new HashMap<>();
+
+        this.threadPoolExecutor = new ThreadPoolExecutor(poolSize, poolSize, 1L, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPrefix));
     }
 
+    protected abstract Runnable createTask(final ResourceCoordinates resourceCoordinates);
+
     @Override
-    public int getPendingUrisCounter() {
+    public final int getPendingUrisCounter() {
         return pendingUris.size();
     }
 
     @Override
-    public int getRecoverableUrisCounter() {
+    public final int getRecoverableUrisCounter() {
         return retriesMap.size();
     }
 
     @Override
-    public int getUnrecoverableUrisCounter() {
+    public final int getUnrecoverableUrisCounter() {
         return unrecoverableUris.size();
     }
 
     @Override
-    public int getVisitedUrisCounter() {
+    public final int getVisitedUrisCounter() {
         return visitedUris.size();
     }
 
@@ -97,7 +113,7 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
      *
      * @return true if the task is completed
      */
-    public synchronized boolean isCompleted() {
+    public final synchronized boolean isCompleted() {
         return pendingUris.isEmpty() && retriesMap.isEmpty() && !visitedUris.isEmpty();
     }
 
@@ -107,8 +123,10 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
                 && !unrecoverableUris.contains(resourceCoordinates);
     }
 
+    protected abstract boolean isSubmittable(final ResourceCoordinates resourceCoordinates);
+
     @Override
-    public void logPendingUris() {
+    public final void logPendingUris() {
 
         log.info("Number of URIs at pending status: {}", pendingUris.size());
         for (final ResourceCoordinates resource : pendingUris) {
@@ -117,7 +135,7 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
     }
 
     @Override
-    public void logRecoverableUris() {
+    public final void logRecoverableUris() {
 
         log.info("Number of recoverable URIs: {}", retriesMap.size());
         for (final Entry<ResourceCoordinates, Short> entry : retriesMap.entrySet()) {
@@ -126,7 +144,7 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
     }
 
     @Override
-    public void logUnrecoverableUris() {
+    public final void logUnrecoverableUris() {
 
         log.info("Number of unrecoverable URIs: {}", unrecoverableUris.size());
         for (final ResourceCoordinates resource : unrecoverableUris) {
@@ -135,7 +153,7 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
     }
 
     @Override
-    public void logVisitedUris() {
+    public final void logVisitedUris() {
 
         log.info("Number of visited URIs: {}", visitedUris.size());
         for (final ResourceCoordinates resource : visitedUris) {
@@ -151,7 +169,7 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
      *            the resource to retry
      * @return <tt>true</tt> if a retry is possible; <tt>false</tt> otherwise
      */
-    public synchronized boolean retry(final ResourceCoordinates resourceCoordinates) {
+    public final synchronized boolean retry(final ResourceCoordinates resourceCoordinates) {
 
         if (unrecoverableUris.contains(resourceCoordinates) || visitedUris.contains(resourceCoordinates)) {
             return false;
@@ -159,6 +177,7 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
 
         if (incrRetriesCounter(resourceCoordinates) < maxRetries) {
             pendingUris.remove(resourceCoordinates);
+            submit(resourceCoordinates);
             return true;
         }
 
@@ -167,27 +186,49 @@ public final class CrawlerTaskStatus implements CrawlerTaskStatusMBean {
         return false;
     }
 
-    public synchronized boolean submit(final ResourceCoordinates resourceCoordinates) {
+    public final synchronized boolean submit(final ResourceCoordinates resourceCoordinates) {
 
-        if (isNew(resourceCoordinates)) {
-            pendingUris.add(resourceCoordinates);
-            return true;
+        try {
+            if (isSubmittable(resourceCoordinates) && isNew(resourceCoordinates)) {
+
+                final Runnable task = createTask(resourceCoordinates);
+                if (task != null) {
+                    pendingUris.add(resourceCoordinates);
+                    threadPoolExecutor.submit(task);
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            tryShutdown();
         }
-        return false;
     }
 
-    public synchronized void unrecoverable(final ResourceCoordinates resourceCoordinates) {
+    private void tryShutdown() {
+
+        if (!threadPoolExecutor.isShutdown() && isCompleted()) {
+            log.info("Shutdown in progress");
+            threadPoolExecutor.shutdown();
+            log.info("Shutdown completed");
+        }
+    }
+
+    public final synchronized void unrecoverable(final ResourceCoordinates resourceCoordinates) {
         unrecoverableUris.add(resourceCoordinates);
         retriesMap.remove(resourceCoordinates);
         pendingUris.remove(resourceCoordinates);
+
+        tryShutdown();
     }
 
     /*
      * Mark a page as visited.
      */
-    public synchronized void visited(final ResourceCoordinates resourceCoordinates) {
+    public final synchronized void visited(final ResourceCoordinates resourceCoordinates) {
         this.visitedUris.add(resourceCoordinates);
         this.pendingUris.remove(resourceCoordinates);
         this.retriesMap.remove(resourceCoordinates);
+
+        tryShutdown();
     }
 }

@@ -26,9 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,12 +44,11 @@ import com.dattack.aranea.beans.jobs.Param;
 import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.beans.rest.RestBean;
 import com.dattack.aranea.engine.Context;
-import com.dattack.aranea.engine.CrawlerTaskStatus;
+import com.dattack.aranea.engine.CrawlerTaskController;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
 import com.dattack.aranea.engine.ResourceObject;
 import com.dattack.aranea.util.JmxUtil;
-import com.dattack.aranea.util.NamedThreadFactory;
 import com.dattack.aranea.util.http.HttpResourceResponse;
 import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
 
@@ -60,17 +56,14 @@ import com.dattack.jtoolbox.commons.configuration.ConfigurationUtil;
  * @author cvarela
  * @since 0.1
  */
-public class CrawlerRestTaskController {
+public class CrawlerRestTaskController extends CrawlerTaskController {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerRestTaskController.class);
 
     private final RestBean restBean;
     private final Map<String, OutputStream> outputMapping;
-    private final ThreadPoolExecutor executor;
-    private final CrawlerTaskStatus crawlerStatus;
     private final Set<Object> resourceIdList;
     private final Context context;
-    private final Object monitor = new Object();
 
     private static Context initContext(final Job job) {
 
@@ -85,19 +78,27 @@ public class CrawlerRestTaskController {
     }
 
     public CrawlerRestTaskController(final RestBean restBean, final Job job) {
+
+        super(3, restBean.getCrawlerBean().getThreadPoolSize(), restBean.getId());
         this.restBean = restBean;
         this.context = initContext(job);
         this.outputMapping = new HashMap<>();
-        this.crawlerStatus = new CrawlerTaskStatus(3);
-        this.executor = new ThreadPoolExecutor(restBean.getCrawlerBean().getThreadPoolSize(),
-                restBean.getCrawlerBean().getThreadPoolSize(), 1L, TimeUnit.MINUTES,
-                new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(restBean.getId()));
         this.resourceIdList = new HashSet<>();
 
-        JmxUtil.registerMBean(crawlerStatus,
+        JmxUtil.registerMBean(this,
                 JmxUtil.createObjectName(String.format("com.dattack.aranea.rest:type=%s,name=%s", //
-                        crawlerStatus.getClass().getSimpleName(), //
+                        this.getClass().getSimpleName(), //
                         restBean.getId())));
+    }
+
+    @Override
+    protected Runnable createTask(final ResourceCoordinates resourceCoordinates) {
+
+        final ResourceBean resourceBean = resourceLookup(resourceCoordinates.getUri().toString());
+        if (resourceBean != null) {
+            return new CrawlerRestTask(resourceCoordinates, this, resourceBean);
+        }
+        return null;
     }
 
     public void execute() {
@@ -108,16 +109,9 @@ public class CrawlerRestTaskController {
                         new URI(getContext().interpolate(url)));
                 submit(resourceCoordinates);
             } catch (final URISyntaxException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                log.error("Unable to go to the entry point: {}", e.getMessage());
             }
         }
-    }
-
-    protected void fail(final ResourceCoordinates resourceCoordinates) {
-
-        crawlerStatus.unrecoverable(resourceCoordinates);
-        tryShutdown();
     }
 
     public Context getContext() {
@@ -139,7 +133,7 @@ public class CrawlerRestTaskController {
             final List<ResourceObject> resources) {
 
         try {
-            crawlerStatus.visited(response.getRequest().getResourceCoordinates());
+            visited(response.getRequest().getResourceCoordinates());
 
             final ResourceBean resourceBean = resourceLookup(
                     response.getRequest().getResourceCoordinates().getUri().toString());
@@ -148,9 +142,8 @@ public class CrawlerRestTaskController {
             }
 
         } catch (final Exception e) {
-            relaunch(response.getRequest().getResourceCoordinates());
-        } finally {
-            tryShutdown();
+            log.error("Unable to handle data from {} [Cause: {}]", response.getResourceUri(), e.getMessage());
+            retry(response.getRequest().getResourceCoordinates());
         }
     }
 
@@ -162,6 +155,13 @@ public class CrawlerRestTaskController {
                 notifyAppenders(resource.compileConfiguration(), resourceBean.getAppenders().getAppenderList());
             }
         }
+    }
+
+    @Override
+    protected boolean isSubmittable(final ResourceCoordinates resourceCoordinates) {
+
+        final ResourceBean resourceBean = resourceLookup(resourceCoordinates.getUri().toString());
+        return resourceBean != null;
     }
 
     private synchronized boolean isUnique(final ResourceObject resource) {
@@ -201,16 +201,6 @@ public class CrawlerRestTaskController {
         }
     }
 
-    protected void relaunch(final ResourceCoordinates resourceCoordinates) {
-
-        final boolean relaunch = crawlerStatus.retry(resourceCoordinates);
-        if (relaunch) {
-            submit(resourceCoordinates);
-        } else {
-            tryShutdown();
-        }
-    }
-
     private ResourceBean resourceLookup(final String uri) {
 
         for (final ResourceBean item : restBean.getResourceBeanList()) {
@@ -224,39 +214,5 @@ public class CrawlerRestTaskController {
         }
 
         return null;
-    }
-
-    protected boolean submit(final ResourceCoordinates resourceCoordinates) {
-        try {
-
-            final ResourceBean resourceBean = resourceLookup(resourceCoordinates.getUri().toString());
-
-            if (resourceBean != null) {
-                if (crawlerStatus.submit(resourceCoordinates)) {
-                    executor.submit(new CrawlerRestTask(resourceCoordinates, this, resourceBean));
-                    return true;
-                }
-            } else {
-                log.warn("Resource not configured for URL: {}", resourceCoordinates.getUri().toString());
-            }
-
-            return false;
-
-        } finally {
-            tryShutdown();
-        }
-    }
-
-    private void tryShutdown() {
-
-        if (!executor.isShutdown() && crawlerStatus.isCompleted()) {
-            log.info("Shutdown in progress");
-            // executor.shutdown();
-            log.info("Shutdown completed");
-
-            synchronized (monitor) {
-                monitor.notifyAll();
-            }
-        }
     }
 }

@@ -20,9 +20,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
@@ -32,44 +29,41 @@ import com.dattack.aranea.beans.web.WebBean;
 import com.dattack.aranea.beans.web.crawler.CrawlerBean;
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
 import com.dattack.aranea.engine.Context;
-import com.dattack.aranea.engine.CrawlerTaskStatus;
+import com.dattack.aranea.engine.CrawlerTaskController;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
-import com.dattack.aranea.util.NamedThreadFactory;
 
 /**
  * @author cvarela
  * @since 0.1
  */
-class CrawlerWebTaskController {
+public class CrawlerWebTaskController extends CrawlerTaskController {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerWebTaskController.class);
 
     private static final int MAX_ERRORS = 3;
 
     private final WebBean sourceBean;
-    private final ThreadPoolExecutor executor;
     private final FilenameGenerator filenameGenerator;
     private final List<LinkNormalizer> linkNormalizers;
-    private final CrawlerTaskStatus taskStatus;
     private final Repository repository;
     private final Context context;
 
     public CrawlerWebTaskController(final WebBean sourceBean) {
-
+        super(MAX_ERRORS, sourceBean.getCrawler().getThreadPoolSize(), sourceBean.getId());
         this.sourceBean = sourceBean;
         this.context = new Context();
         this.repository = new Repository(getContext().interpolate(sourceBean.getRepository()));
-        this.taskStatus = new CrawlerTaskStatus(MAX_ERRORS);
         this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean(), getContext());
-        this.executor = new ThreadPoolExecutor(getCrawlerBean().getThreadPoolSize(),
-                getCrawlerBean().getThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue<Runnable>(),
-                new NamedThreadFactory(sourceBean.getId()));
-
         this.linkNormalizers = new ArrayList<>();
         for (final URINormalizerBean lnc : getCrawlerBean().getNormalizerList()) {
             linkNormalizers.add(new LinkNormalizer(lnc));
         }
+    }
+
+    @Override
+    protected Runnable createTask(final ResourceCoordinates resourceCoordinates) {
+        return new CrawlerWebTask(resourceCoordinates, this);
     }
 
     public void execute() {
@@ -83,12 +77,6 @@ class CrawlerWebTaskController {
         } catch (final URISyntaxException e) {
             log.error(e.getMessage());
         }
-    }
-
-    void fail(final ResourceCoordinates resourceCoordinates) {
-
-        taskStatus.unrecoverable(resourceCoordinates);
-        tryShutdown();
     }
 
     public Context getContext() {
@@ -110,19 +98,23 @@ class CrawlerWebTaskController {
     void handle(final ResourceDiscoveryStatus resourceDiscoveryStatus, final Document doc) {
 
         try {
-            taskStatus.visited(resourceDiscoveryStatus.getResourceCoordinates());
+            visited(resourceDiscoveryStatus.getResourceCoordinates());
 
             final String filename = filenameGenerator
                     .getFilename(resourceDiscoveryStatus.getResourceCoordinates().getUri());
             repository.write(filename, doc.html(), resourceDiscoveryStatus);
 
-            tryShutdown();
-
             log.info("{} new URIs from {}", resourceDiscoveryStatus.getNewUris().size(),
                     resourceDiscoveryStatus.getResourceCoordinates().getUri().toString());
         } catch (final IOException e) {
-            relaunch(resourceDiscoveryStatus.getResourceCoordinates());
+            log.error("{} [URI: {}]", e.getMessage(), resourceDiscoveryStatus.getResourceCoordinates().getUri());
+            retry(resourceDiscoveryStatus.getResourceCoordinates());
         }
+    }
+
+    @Override
+    protected boolean isSubmittable(final ResourceCoordinates resourceCoordinates) {
+        return true;
     }
 
     protected String normalizeUri(final String uri) {
@@ -133,35 +125,4 @@ class CrawlerWebTaskController {
         }
         return normalizedUri;
     }
-
-    void relaunch(final ResourceCoordinates resourceCoordinates) {
-
-        final boolean relaunch = taskStatus.retry(resourceCoordinates);
-        if (relaunch) {
-            submit(resourceCoordinates);
-        } else {
-            tryShutdown();
-        }
-    }
-
-    protected boolean submit(final ResourceCoordinates resourceCoordinates) {
-
-        try {
-            if (taskStatus.submit(resourceCoordinates)) {
-                executor.submit(new CrawlerWebTask(resourceCoordinates, this));
-                return true;
-            }
-            return false;
-        } catch (final Throwable t) {
-            t.printStackTrace();
-            return false;
-        }
-    }
-
-    private void tryShutdown() {
-        if (taskStatus.isCompleted()) {
-            executor.shutdown();
-        }
-    }
-
 }

@@ -136,6 +136,8 @@ class CrawlerRestTask implements Runnable {
         } else {
             this.configuration.setProperty(RESOURCE_REFERER, resourceCoordinates.getReferer().toString());
         }
+
+        this.configuration.append(controller.getContext().getConfiguration());
     }
 
     @Override
@@ -167,32 +169,32 @@ class CrawlerRestTask implements Runnable {
                         }
                         controller.handle(response, resourceDiscoveryStatus, resourceList);
                     } else if (response.getStatusLine().getStatusCode() >= HttpStatus.SC_BAD_REQUEST) {
-                        controller.fail(resourceCoordinates);
+                        controller.unrecoverable(resourceCoordinates);
                     } else {
                         // TODO: is 'relaunch' the right action?
-                        controller.relaunch(resourceCoordinates);
+                        controller.retry(resourceCoordinates);
                     }
 
                 } else {
                     log.error("Unable to process an empty resource (no text data retrieved): {}",
                             resourceCoordinates.toString());
-                    controller.fail(resourceCoordinates);
+                    controller.unrecoverable(resourceCoordinates);
                 }
             } else {
                 log.error("Unable to process a resource without javascript configuration: {}",
                         resourceCoordinates.toString());
-                controller.fail(resourceCoordinates);
+                controller.unrecoverable(resourceCoordinates);
             }
 
         } catch (final IOException e) {
 
             log.warn("{}: {}", e.getMessage(), resourceCoordinates.toString());
-            controller.relaunch(resourceCoordinates);
+            controller.retry(resourceCoordinates);
 
         } catch (final ScriptException e) {
 
             log.error("{}: {}", e.getMessage(), resourceCoordinates.toString());
-            controller.fail(resourceCoordinates);
+            controller.unrecoverable(resourceCoordinates);
         }
     }
 
