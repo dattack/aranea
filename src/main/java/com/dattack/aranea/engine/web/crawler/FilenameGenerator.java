@@ -48,7 +48,8 @@ public class FilenameGenerator {
         this.storageBean = storageBean;
 
         if (StringUtils.isNotBlank(storageBean.getUrlRegEx())) {
-            this.urlRegExPattern = Pattern.compile(context.interpolate(storageBean.getUrlRegEx()));
+            this.urlRegExPattern = Pattern.compile(context.interpolate(storageBean.getUrlRegEx()),
+                    Pattern.CASE_INSENSITIVE);
         }
     }
 
