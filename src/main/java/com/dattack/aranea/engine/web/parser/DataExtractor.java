@@ -28,8 +28,8 @@ import org.jsoup.select.Elements;
 
 import com.dattack.aranea.beans.web.parser.MetadataBean;
 import com.dattack.aranea.beans.web.parser.MetadataItemBean;
+import com.dattack.aranea.engine.web.WebTaskUtil;
 import com.dattack.aranea.util.JsoupUtil;
-import com.dattack.aranea.util.WebTaskUtil;
 
 /**
  * @author cvarela

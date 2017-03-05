@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.util;
+package com.dattack.aranea.engine.web;
 
 import java.util.List;
 
@@ -23,6 +23,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import com.dattack.aranea.beans.web.VarBean;
+import com.dattack.aranea.util.JsoupUtil;
 
 /**
  * @author cvarela
