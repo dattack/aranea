@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.web.crawler.ExcludeBean;
 import com.dattack.aranea.beans.web.crawler.RegionSelectorBean;
+import com.dattack.aranea.beans.web.crawler.RequiredBean;
 import com.dattack.aranea.beans.web.crawler.SeedBean;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
@@ -46,7 +47,7 @@ import com.dattack.aranea.util.http.HttpResourceResponse;
  * @author cvarela
  * @since 0.1
  */
-class CrawlerWebTask implements Runnable {
+public class CrawlerWebTask implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerWebTask.class);
 
@@ -98,6 +99,18 @@ class CrawlerWebTask implements Runnable {
 
         // generate new links
         for (final SeedBean seedBean : controller.getCrawlerBean().getSeedBeanList()) {
+
+            boolean missingRequiredVariables = false;
+            for (final RequiredBean requiredBean : seedBean.getRequiredList()) {
+                if (!configuration.containsKey(requiredBean.getName())) {
+                    missingRequiredVariables = true;
+                    break;
+                }
+            }
+
+            if (missingRequiredVariables) {
+                continue;
+            }
 
             String link = seedBean.getUrl();
             try {
@@ -167,8 +180,9 @@ class CrawlerWebTask implements Runnable {
             String linkHref = null;
             try {
 
-                linkHref = StringUtils.trimToEmpty(link.attr(domSelectorBean.getAttribute()));
-                if (StringUtils.isBlank(linkHref) || resourceDiscoveryStatus.getIgnoredLinks().contains(linkHref)
+                linkHref = controller.normalizeUri(StringUtils.trimToEmpty(link.attr(domSelectorBean.getAttribute())));
+                if (StringUtils.isBlank(linkHref) //
+                        || resourceDiscoveryStatus.getIgnoredLinks().contains(linkHref) //
                         || exclude(linkHref, domSelectorBean.getExcludeLinksList())) {
                     continue;
                 }

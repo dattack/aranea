@@ -23,7 +23,6 @@ public final class XmlTokens {
 
     public static final String ARANEA = "aranea";
     public static final String ATTRIBUTE = "attribute";
-    public static final String CONDITION = "condition";
     public static final String CRAWLER = "crawler";
     public static final String DATA_FILE = "datafile";
     public static final String ELEMENT = "element";
@@ -62,6 +61,7 @@ public final class XmlTokens {
     public static final String SEED = "seed";
     public static final String SELECTOR = "selector";
     public static final String WEB = "web";
+    public static final String REQUIRED = "required";
     public static final String STORAGE = "storage";
     public static final String STORE_NOT_MATCHING = "storeNotMatching";
     public static final String TARGET = "target";

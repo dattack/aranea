@@ -15,10 +15,7 @@
  */
 package com.dattack.aranea.beans.web.crawler;
 
-import java.util.List;
-
 import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
 
 import com.dattack.aranea.beans.XmlTokens;
 
@@ -26,19 +23,12 @@ import com.dattack.aranea.beans.XmlTokens;
  * @author cvarela
  * @since 0.1
  */
-public class SeedBean {
+public class RequiredBean {
 
-    @XmlAttribute(name = XmlTokens.URL, required = true)
-    private String url;
+    @XmlAttribute(name = XmlTokens.NAME, required = true)
+    private String name;
 
-    @XmlElement(name = XmlTokens.REQUIRED, required = true)
-    private List<RequiredBean> requiredList;
-
-    public List<RequiredBean> getRequiredList() {
-        return requiredList;
-    }
-
-    public String getUrl() {
-        return url;
+    public String getName() {
+        return name;
     }
 }
