@@ -26,18 +26,7 @@ public abstract class AbstractTaskBean {
     @XmlAttribute(name = XmlTokens.ID, required = true)
     private String id;
 
-    @XmlAttribute(name = XmlTokens.REPOSITORY, required = true)
-    private String repository;
-    
-    public AbstractTaskBean() {
-        this.repository = ".";
-    }
-    
     public final String getId() {
         return id;
-    }
-    
-    public final String getRepository() {
-        return repository;
     }
 }

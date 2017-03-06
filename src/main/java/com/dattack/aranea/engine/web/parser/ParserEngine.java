@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.web.WebBean;
+import com.dattack.aranea.engine.Context;
 
 /**
  * @author cvarela
@@ -33,14 +34,28 @@ import com.dattack.aranea.beans.web.WebBean;
 public final class ParserEngine {
 
     private static final Logger log = LoggerFactory.getLogger(ParserEngine.class);
+    
+    private final Context context;
+    
+    public ParserEngine() {
+        this.context = new Context();
+    }
 
-    public void execute(final WebBean sourceBean) {
+    public void execute(final WebBean sourceBean, final String repositoryPath) {
 
-        final DataWriter dataWriter = new DataWriter(new File(sourceBean.getParser().getOutput().getDatafile()));
+        log.info("Starting parser process:");
+        
+        String repository = context.interpolate(repositoryPath);
+        log.info("Repository path: {}", repository);
+
+        String filename = context.interpolate(sourceBean.getParser().getOutput().getDatafile());
+        log.info("Output filename: {}", filename);
+
+        final DataWriter dataWriter = new DataWriter(new File(filename));
 
         execute(new DataExtractor(sourceBean.getParser().getMetadata()), //
                 new DataTransformer(sourceBean.getParser().getOutput()), //
-                new File(sourceBean.getRepository()), //
+                new File(repository), //
                 dataWriter);
     }
 

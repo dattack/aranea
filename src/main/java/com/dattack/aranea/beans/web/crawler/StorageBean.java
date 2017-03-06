@@ -42,14 +42,30 @@ public class StorageBean {
 
     @XmlAttribute(name = XmlTokens.FILENAME_NOT_MATCHING_PATTERN)
     private String filenameNotMatchingPattern;
+    
+    @XmlAttribute(name = XmlTokens.REPOSITORY, required = false)
+    private String repository;
 
     public StorageBean() {
         this.storeNotMatching = true;
         this.layout = PLAIN_LAYAOUT;
+        this.repository = ".";
+    }
+
+    public String getFilenameNotMatchingPattern() {
+        return filenameNotMatchingPattern;
     }
 
     public String getFilenamePattern() {
         return filenamePattern;
+    }
+
+    public String getLayout() {
+        return layout;
+    }
+
+    public String getRepository() {
+        return repository;
     }
 
     public String getUrlRegEx() {
@@ -58,13 +74,5 @@ public class StorageBean {
 
     public boolean isStoreNotMatching() {
         return storeNotMatching;
-    }
-
-    public String getFilenameNotMatchingPattern() {
-        return filenameNotMatchingPattern;
-    }
-
-    public String getLayout() {
-        return layout;
     }
 }

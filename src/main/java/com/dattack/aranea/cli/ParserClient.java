@@ -15,6 +15,7 @@ package com.dattack.aranea.cli;
 import javax.xml.bind.JAXBException;
 
 import org.apache.commons.lang.StringUtils;
+import org.jsoup.helper.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,11 +40,13 @@ public final class ParserClient {
             CommandLine commandLine = new CommandLine(args);
             final String configurationFilename = commandLine.nextArg();
             final String sourceName = commandLine.nextArg();
+            final String repositoryPath = commandLine.nextArg();
 
-            if (StringUtils.isBlank(configurationFilename)) {
-                System.err.println("Usage: ParserClient <configuration_file> [<source_name>]");
+            if (StringUtils.isBlank(configurationFilename) || StringUtils.isBlank(sourceName)
+                    || StringUtil.isBlank(repositoryPath)) {
+                System.err.println("Usage: ParserClient <configuration_file> <source_name> <repositoryPath>");
             } else {
-                execute(configurationFilename, sourceName);
+                execute(configurationFilename, sourceName, repositoryPath);
             }
 
         } catch (final Throwable e) {
@@ -55,7 +58,8 @@ public final class ParserClient {
         // Main class
     }
 
-    private static void execute(final String xmlConfigurationFilename, final String sourceName) throws JAXBException {
+    private static void execute(final String xmlConfigurationFilename, final String sourceName,
+            final String repositoryPath) throws JAXBException {
 
         AraneaBean araneaBean = (AraneaBean) XmlParser.parse(AraneaBean.class, xmlConfigurationFilename);
 
@@ -67,7 +71,7 @@ public final class ParserClient {
                     continue;
                 }
                 log.info(sourceBean.toString());
-                parserEngine.execute((WebBean) sourceBean);
+                parserEngine.execute((WebBean) sourceBean, repositoryPath);
             }
         }
     }

@@ -53,7 +53,8 @@ public class CrawlerWebTaskController extends CrawlerTaskController {
         super(MAX_ERRORS, sourceBean.getCrawler().getThreadPoolSize(), sourceBean.getId());
         this.sourceBean = sourceBean;
         this.context = new Context();
-        this.repository = new Repository(getContext().interpolate(sourceBean.getRepository()));
+        this.repository = new Repository(
+                getContext().interpolate(sourceBean.getCrawler().getStorageBean().getRepository()));
         this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean(), getContext());
         this.linkNormalizers = new ArrayList<>();
         for (final URINormalizerBean lnc : getCrawlerBean().getNormalizerList()) {
