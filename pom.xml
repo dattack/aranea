@@ -158,7 +158,7 @@
 					<repositoryName>lib</repositoryName>
 					<programs>
 						<program>
-							<mainClass>com.dattack.aranea.cli.CrawlerClient</mainClass>
+							<mainClass>com.dattack.aranea.cli.CrawlerCli</mainClass>
 							<name>crawler</name>
 							<platforms>
 								<platform>unix</platform>
@@ -166,7 +166,7 @@
 							</platforms>
 						</program>
 						<program>
-							<mainClass>com.dattack.aranea.cli.ParserClient</mainClass>
+							<mainClass>com.dattack.aranea.cli.ParserCli</mainClass>
 							<name>parser</name>
 							<platforms>
 								<platform>unix</platform>
