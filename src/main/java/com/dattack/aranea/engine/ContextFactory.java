@@ -13,29 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.cli;
+package com.dattack.aranea.engine;
 
-import javax.xml.bind.JAXBException;
-
-import org.apache.commons.lang.StringUtils;
-
-import com.dattack.aranea.beans.jobs.Jobs;
-import com.dattack.aranea.util.XmlParser;
+import com.dattack.aranea.beans.jobs.Job;
+import com.dattack.aranea.beans.jobs.Param;
 
 /**
  * @author cvarela
- *
+ * @since 0.1
  */
-public class CliHelper {
+public class ContextFactory {
 
-    private CliHelper() {
-        // helper class
+    public Context create() {
+        return create(null);
     }
 
-    static Jobs getJobs(final String jobsFilename) throws JAXBException {
-        if (StringUtils.isBlank(jobsFilename)) {
-            return null;
+    public Context create(final Job job) {
+
+        final Context c = new Context();
+        if (job != null) {
+            for (final Param param : job.getParamList()) {
+                c.setProperty(param.getName(), param.getValue());
+            }
         }
-        return (Jobs) XmlParser.parse(Jobs.class, jobsFilename);
+
+        return c;
     }
 }

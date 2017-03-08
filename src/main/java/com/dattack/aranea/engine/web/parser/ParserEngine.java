@@ -24,8 +24,10 @@ import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dattack.aranea.beans.jobs.Job;
 import com.dattack.aranea.beans.web.WebBean;
 import com.dattack.aranea.engine.Context;
+import com.dattack.aranea.engine.ContextFactory;
 
 /**
  * @author cvarela
@@ -34,28 +36,34 @@ import com.dattack.aranea.engine.Context;
 public final class ParserEngine {
 
     private static final Logger log = LoggerFactory.getLogger(ParserEngine.class);
-    
+
     private final Context context;
+    private final String repositoryPath;
+    private final WebBean webBean;
+
+    public ParserEngine(final WebBean webBean, final String repositoryPath) {
+        this(webBean, repositoryPath, null);
+    }
     
-    public ParserEngine() {
-        this.context = new Context();
+    public ParserEngine(final WebBean webBean, final String repositoryPath, final Job job) {
+        this.context = new ContextFactory().create(job);
+        this.repositoryPath = context.interpolate(repositoryPath);
+        this.webBean = webBean;
     }
 
-    public void execute(final WebBean sourceBean, final String repositoryPath) {
+    public void execute() {
 
-        log.info("Starting parser process:");
-        
-        String repository = context.interpolate(repositoryPath);
-        log.info("Repository path: {}", repository);
+        log.info("Starting parser process for {}", webBean.getId());
+        log.info("Repository path: {}", repositoryPath);
 
-        String filename = context.interpolate(sourceBean.getParser().getOutput().getDatafile());
+        String filename = context.interpolate(webBean.getParser().getOutput().getDatafile());
         log.info("Output filename: {}", filename);
 
         final DataWriter dataWriter = new DataWriter(new File(filename));
 
-        execute(new DataExtractor(sourceBean.getParser().getMetadata()), //
-                new DataTransformer(sourceBean.getParser().getOutput()), //
-                new File(repository), //
+        execute(new DataExtractor(webBean.getParser().getMetadata()), //
+                new DataTransformer(webBean.getParser().getOutput()), //
+                new File(repositoryPath), //
                 dataWriter);
     }
 

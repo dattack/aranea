@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.dattack.aranea.beans.jobs.Job;
-import com.dattack.aranea.beans.jobs.Param;
 import com.dattack.aranea.util.NamedThreadFactory;
 
 /**
@@ -74,21 +73,9 @@ public abstract class CrawlerTaskController implements CrawlerTaskControllerMBea
         this.visitedUris = new HashSet<>();
         this.unrecoverableUris = new HashSet<>();
         this.retriesMap = new HashMap<>();
-        this.context = initContext(job);
+        this.context = new ContextFactory().create(job);
         this.threadPoolExecutor = new ThreadPoolExecutor(poolSize, poolSize, 1L, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPrefix));
-    }
-
-    private static Context initContext(final Job job) {
-
-        final Context c = new Context();
-        if (job != null) {
-            for (final Param param : job.getParamList()) {
-                c.setProperty(param.getName(), param.getValue());
-            }
-        }
-
-        return c;
     }
 
     public final Context getContext() {
