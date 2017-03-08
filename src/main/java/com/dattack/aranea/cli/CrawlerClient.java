@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import com.dattack.aranea.beans.AbstractTaskBean;
 import com.dattack.aranea.beans.AraneaBean;
 import com.dattack.aranea.beans.web.WebBean;
-import com.dattack.aranea.engine.web.crawler.CrawlerWebEngine;
+import com.dattack.aranea.engine.web.crawler.CrawlerWebTaskController;
 import com.dattack.aranea.util.CommandLine;
 import com.dattack.aranea.util.XmlParser;
 
@@ -37,15 +37,13 @@ public final class CrawlerClient {
 
         AraneaBean araneaBean = (AraneaBean) XmlParser.parse(AraneaBean.class, xmlConfigurationFilename);
 
-        CrawlerWebEngine crawlerEngine = new CrawlerWebEngine();
-
         for (AbstractTaskBean sourceBean : araneaBean.getTaskList()) {
 
             if (sourceName == null || sourceName.equalsIgnoreCase(sourceBean.getId())) {
                 log.info("Starting source '{}'", sourceBean.getId());
 
                 if (sourceBean instanceof WebBean) {
-                    crawlerEngine.submit((WebBean) sourceBean);
+                    new CrawlerWebTaskController((WebBean) sourceBean, null).execute();
                 }
             }
         }

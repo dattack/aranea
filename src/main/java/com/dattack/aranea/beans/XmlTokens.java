@@ -30,7 +30,6 @@ public final class XmlTokens {
     public static final String EXCLUDE_LINK = "exclude-link";
     public static final String EXCLUDE_URL = "exclude-url";
     public static final String FILENAME = "filename";
-    public static final String FILENAME_NOT_MATCHING_PATTERN = "filenameNotMatchingPattern";
     public static final String FILENAME_PATTERN = "filenamePattern";
     public static final String FILTER = "filter";
     public static final String GROUP = "group";
@@ -47,6 +46,7 @@ public final class XmlTokens {
     public static final String METHOD = "method";
     public static final String NAME = "name";
     public static final String NORMALIZER = "normalizer";
+    public static final String NOT_MATCHED_FILENAME_PATTERN = "notMatchedFilenamePattern";
     public static final String OUTPUT = "output";
     public static final String PARSER = "parser";
     public static final String PATTERN = "pattern";
@@ -56,14 +56,13 @@ public final class XmlTokens {
     public static final String REPLACE = "replace";
     public static final String REPLACEMENT = "replacement";
     public static final String REPOSITORY = "repository";
+    public static final String REQUIRED = "required";
     public static final String RESOURCE = "resource";
+    public static final String REST = "rest";
     public static final String SCRIPT = "script";
     public static final String SEED = "seed";
     public static final String SELECTOR = "selector";
-    public static final String WEB = "web";
-    public static final String REQUIRED = "required";
     public static final String STORAGE = "storage";
-    public static final String STORE_NOT_MATCHING = "storeNotMatching";
     public static final String TARGET = "target";
     public static final String THREAD_POOL_SIZE = "threadPoolSize";
     public static final String TIMEOUT = "timeout";
@@ -72,7 +71,7 @@ public final class XmlTokens {
     public static final String USER_AGENT = "userAgent";
     public static final String VALUE = "value";
     public static final String VAR = "var";
-    public static final String REST = "rest";
+    public static final String WEB = "web";
 
     private XmlTokens() {
         // static class

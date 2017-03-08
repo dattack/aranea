@@ -13,22 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dattack.aranea.engine.rest;
+package com.dattack.aranea.cli;
 
-import com.dattack.aranea.beans.jobs.Job;
-import com.dattack.aranea.beans.rest.RestBean;
+import javax.xml.bind.JAXBException;
+
+import org.apache.commons.lang.StringUtils;
+
+import com.dattack.aranea.beans.jobs.Jobs;
+import com.dattack.aranea.util.XmlParser;
 
 /**
  * @author cvarela
- * @since 0.1
+ *
  */
-public class CrawlerRestEngine {
+public class CliHelper {
 
-    public void submit(final RestBean restBean) {
-        submit(restBean, null);
+    private CliHelper() {
+        // helper class
     }
 
-    public void submit(final RestBean restBean, final Job job) {
-        new CrawlerRestTaskController(restBean, job).execute();
+    static Jobs getJobs(final String jobsFilename) throws JAXBException {
+        if (StringUtils.isBlank(jobsFilename)) {
+            return null;
+        }
+        return (Jobs) XmlParser.parse(Jobs.class, jobsFilename);
     }
 }

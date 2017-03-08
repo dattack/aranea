@@ -12,8 +12,6 @@
  */
 package com.dattack.aranea.cli;
 
-import javax.xml.bind.JAXBException;
-
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +21,7 @@ import com.dattack.aranea.beans.AraneaBean;
 import com.dattack.aranea.beans.jobs.Job;
 import com.dattack.aranea.beans.jobs.Jobs;
 import com.dattack.aranea.beans.rest.RestBean;
-import com.dattack.aranea.engine.rest.CrawlerRestEngine;
+import com.dattack.aranea.engine.rest.CrawlerRestTaskController;
 import com.dattack.aranea.util.CommandLine;
 import com.dattack.aranea.util.XmlParser;
 
@@ -49,13 +47,6 @@ public final class RestClient {
         return null;
     }
 
-    private static Jobs getJobs(final String jobsFilename) throws JAXBException {
-        if (StringUtils.isBlank(jobsFilename)) {
-            return null;
-        }
-        return (Jobs) XmlParser.parse(Jobs.class, jobsFilename);
-    }
-
     private static void execute(final String xmlConfigurationFilename, final String sourceName,
             final String jobsFilename) throws Exception {
 
@@ -63,16 +54,15 @@ public final class RestClient {
         AbstractTaskBean task = getTask(araneaBean, sourceName);
 
         if (task instanceof RestBean) {
-            
+
             RestBean restBean = (RestBean) task;
-            Jobs jobs = getJobs(jobsFilename);
-            CrawlerRestEngine crawlerEngine = new CrawlerRestEngine();
-            
+            Jobs jobs = CliHelper.getJobs(jobsFilename);
+
             if (jobs == null) {
-                crawlerEngine.submit(restBean);
+                new CrawlerRestTaskController(restBean, null).execute();
             } else {
-                for (Job job: jobs.getJobList()) {
-                    crawlerEngine.submit(restBean, job);
+                for (Job job : jobs.getJobList()) {
+                    new CrawlerRestTaskController(restBean, job).execute();
                 }
             }
         }

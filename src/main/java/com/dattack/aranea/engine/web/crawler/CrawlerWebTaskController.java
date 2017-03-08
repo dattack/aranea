@@ -25,13 +25,14 @@ import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dattack.aranea.beans.jobs.Job;
 import com.dattack.aranea.beans.web.WebBean;
 import com.dattack.aranea.beans.web.crawler.CrawlerBean;
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
-import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.CrawlerTaskController;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
+import com.dattack.aranea.util.JmxUtil;
 
 /**
  * @author cvarela
@@ -43,23 +44,30 @@ public class CrawlerWebTaskController extends CrawlerTaskController {
 
     private static final int MAX_ERRORS = 3;
 
-    private final WebBean sourceBean;
-    private final FilenameGenerator filenameGenerator;
+    private final CrawlerBean crawlerBean;
     private final List<LinkNormalizer> linkNormalizers;
     private final Repository repository;
-    private final Context context;
 
-    public CrawlerWebTaskController(final WebBean sourceBean) {
-        super(MAX_ERRORS, sourceBean.getCrawler().getThreadPoolSize(), sourceBean.getId());
-        this.sourceBean = sourceBean;
-        this.context = new Context();
-        this.repository = new Repository(
-                getContext().interpolate(sourceBean.getCrawler().getStorageBean().getRepository()));
-        this.filenameGenerator = new FilenameGenerator(getCrawlerBean().getStorageBean(), getContext());
-        this.linkNormalizers = new ArrayList<>();
+    public CrawlerWebTaskController(final WebBean webBean, final Job job) {
+
+        super(MAX_ERRORS, webBean.getCrawler().getThreadPoolSize(), webBean.getId(), job);
+
+        this.crawlerBean = webBean.getCrawler();
+        this.repository = new Repository(getCrawlerBean().getStorageBean(), getContext());
+        this.linkNormalizers = createLinkNormalizerList();
+        
+        JmxUtil.registerMBean(this,
+                JmxUtil.createObjectName(String.format("com.dattack.aranea.web:type=%s,name=%s", //
+                        this.getClass().getSimpleName(), //
+                        webBean.getId())));
+    }
+
+    private List<LinkNormalizer> createLinkNormalizerList() {
+        ArrayList<LinkNormalizer> list = new ArrayList<>();
         for (final URINormalizerBean lnc : getCrawlerBean().getNormalizerList()) {
-            linkNormalizers.add(new LinkNormalizer(lnc));
+            list.add(new LinkNormalizer(lnc));
         }
+        return list;
     }
 
     @Override
@@ -80,16 +88,8 @@ public class CrawlerWebTaskController extends CrawlerTaskController {
         }
     }
 
-    public Context getContext() {
-        return context;
-    }
-
     protected CrawlerBean getCrawlerBean() {
-        return getSourceBean().getCrawler();
-    }
-
-    WebBean getSourceBean() {
-        return sourceBean;
+        return crawlerBean;
     }
 
     int getTimeout() {
@@ -101,9 +101,7 @@ public class CrawlerWebTaskController extends CrawlerTaskController {
         try {
             visited(resourceDiscoveryStatus.getResourceCoordinates());
 
-            final String filename = filenameGenerator
-                    .getFilename(resourceDiscoveryStatus.getResourceCoordinates().getUri());
-            repository.write(filename, doc.html(), resourceDiscoveryStatus);
+            repository.write(resourceDiscoveryStatus, doc.html());
 
             log.info("{} new URIs from {}", resourceDiscoveryStatus.getNewUris().size(),
                     resourceDiscoveryStatus.getResourceCoordinates().getUri().toString());

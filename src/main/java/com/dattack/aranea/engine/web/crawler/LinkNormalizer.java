@@ -15,6 +15,8 @@
  */
 package com.dattack.aranea.engine.web.crawler;
 
+import java.util.regex.Pattern;
+
 import org.apache.commons.lang.StringUtils;
 
 import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
@@ -25,19 +27,15 @@ import com.dattack.aranea.beans.web.crawler.URINormalizerBean;
  */
 class LinkNormalizer {
 
-    private final URINormalizerBean uriNormalizerBean;
+    private Pattern pattern;
+    private String replacement;
 
     public LinkNormalizer(final URINormalizerBean uriNormalizerBean) {
-        this.uriNormalizerBean = uriNormalizerBean;
+        this.pattern = Pattern.compile(uriNormalizerBean.getRegex());
+        this.replacement = StringUtils.defaultString(uriNormalizerBean.getReplacement(), "");
     }
 
     public String normalize(final String originalLink) {
-
-        if (uriNormalizerBean == null) {
-            return originalLink;
-        }
-
-        String replacement = StringUtils.defaultString(uriNormalizerBean.getReplacement(), "");
-        return originalLink.replaceAll(uriNormalizerBean.getRegex(), replacement);
+        return pattern.matcher(originalLink).replaceAll(replacement);
     }
 }

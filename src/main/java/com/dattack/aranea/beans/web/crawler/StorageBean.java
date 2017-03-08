@@ -16,6 +16,8 @@
 package com.dattack.aranea.beans.web.crawler;
 
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlEnum;
+import javax.xml.bind.annotation.XmlEnumValue;
 
 import com.dattack.aranea.beans.XmlTokens;
 
@@ -25,8 +27,11 @@ import com.dattack.aranea.beans.XmlTokens;
  */
 public class StorageBean {
 
-    public static final String PLAIN_LAYAOUT = "plain";
-    public static final String TREE_LAYOUT = "tree";
+    @XmlEnum
+    public enum Layout {
+        @XmlEnumValue("plain") PLAIN,
+        @XmlEnumValue("tree") TREE
+    }
 
     @XmlAttribute(name = XmlTokens.FILENAME_PATTERN, required = true)
     private String filenamePattern;
@@ -35,32 +40,28 @@ public class StorageBean {
     private String urlRegEx;
 
     @XmlAttribute(name = XmlTokens.LAYOUT)
-    private final String layout;
+    private final Layout layout;
 
-    @XmlAttribute(name = XmlTokens.STORE_NOT_MATCHING)
-    private final boolean storeNotMatching;
-
-    @XmlAttribute(name = XmlTokens.FILENAME_NOT_MATCHING_PATTERN)
-    private String filenameNotMatchingPattern;
+    @XmlAttribute(name = XmlTokens.NOT_MATCHED_FILENAME_PATTERN)
+    private String notMatchedFilenamePattern;
     
     @XmlAttribute(name = XmlTokens.REPOSITORY, required = false)
     private String repository;
 
     public StorageBean() {
-        this.storeNotMatching = true;
-        this.layout = PLAIN_LAYAOUT;
+        this.layout = Layout.TREE;
         this.repository = ".";
     }
 
-    public String getFilenameNotMatchingPattern() {
-        return filenameNotMatchingPattern;
+    public String getNotMatchedFilenamePattern() {
+        return notMatchedFilenamePattern;
     }
 
     public String getFilenamePattern() {
         return filenamePattern;
     }
 
-    public String getLayout() {
+    public Layout getLayout() {
         return layout;
     }
 
@@ -70,9 +71,5 @@ public class StorageBean {
 
     public String getUrlRegEx() {
         return urlRegEx;
-    }
-
-    public boolean isStoreNotMatching() {
-        return storeNotMatching;
     }
 }

@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dattack.aranea.beans.jobs.Job;
+import com.dattack.aranea.beans.jobs.Param;
 import com.dattack.aranea.util.NamedThreadFactory;
 
 /**
@@ -48,10 +50,13 @@ public abstract class CrawlerTaskController implements CrawlerTaskControllerMBea
     // set of URIs that have ended in an unrecoverable error
     private final Set<ResourceCoordinates> unrecoverableUris;
 
-    // map with the number of retries performed for each URI that ended with a recoverable error
+    // map with the number of retries performed for each URI that ended with a
+    // recoverable error
     private final Map<ResourceCoordinates, Short> retriesMap;
 
     private final ThreadPoolExecutor threadPoolExecutor;
+
+    private final Context context;
 
     /**
      * @param maxRetries
@@ -60,16 +65,34 @@ public abstract class CrawlerTaskController implements CrawlerTaskControllerMBea
      *            the number of threads to allow in the pool
      * @param threadPrefix
      *            the prefix to named the threads
+     * @param job
+     *            additional runtime configuration
      */
-    public CrawlerTaskController(final int maxRetries, final int poolSize, final String threadPrefix) {
+    public CrawlerTaskController(final int maxRetries, final int poolSize, final String threadPrefix, final Job job) {
         this.maxRetries = maxRetries;
         this.pendingUris = new HashSet<>();
         this.visitedUris = new HashSet<>();
         this.unrecoverableUris = new HashSet<>();
         this.retriesMap = new HashMap<>();
-
+        this.context = initContext(job);
         this.threadPoolExecutor = new ThreadPoolExecutor(poolSize, poolSize, 1L, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(), new NamedThreadFactory(threadPrefix));
+    }
+
+    private static Context initContext(final Job job) {
+
+        final Context c = new Context();
+        if (job != null) {
+            for (final Param param : job.getParamList()) {
+                c.setProperty(param.getName(), param.getValue());
+            }
+        }
+
+        return c;
+    }
+
+    public final Context getContext() {
+        return context;
     }
 
     protected abstract Runnable createTask(final ResourceCoordinates resourceCoordinates);
@@ -108,8 +131,9 @@ public abstract class CrawlerTaskController implements CrawlerTaskControllerMBea
     }
 
     /**
-     * A task crawler is complete when there are no resources to be visited, there are no resources that need to be
-     * retry access and at least one resource has been visited.
+     * A task crawler is complete when there are no resources to be visited,
+     * there are no resources that need to be retry access and at least one
+     * resource has been visited.
      *
      * @return true if the task is completed
      */
@@ -162,8 +186,8 @@ public abstract class CrawlerTaskController implements CrawlerTaskControllerMBea
     }
 
     /**
-     * Checks that the maximum number of retries has already been reached or it is still possible to retry a new access
-     * to a resource.
+     * Checks that the maximum number of retries has already been reached or it
+     * is still possible to retry a new access to a resource.
      *
      * @param resourceCoordinates
      *            the resource to retry

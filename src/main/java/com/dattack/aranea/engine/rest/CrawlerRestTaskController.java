@@ -40,10 +40,8 @@ import org.slf4j.LoggerFactory;
 import com.dattack.aranea.beans.appender.AbstractAppender;
 import com.dattack.aranea.beans.appender.FileAppender;
 import com.dattack.aranea.beans.jobs.Job;
-import com.dattack.aranea.beans.jobs.Param;
 import com.dattack.aranea.beans.rest.ResourceBean;
 import com.dattack.aranea.beans.rest.RestBean;
-import com.dattack.aranea.engine.Context;
 import com.dattack.aranea.engine.CrawlerTaskController;
 import com.dattack.aranea.engine.ResourceCoordinates;
 import com.dattack.aranea.engine.ResourceDiscoveryStatus;
@@ -63,25 +61,11 @@ public class CrawlerRestTaskController extends CrawlerTaskController {
     private final RestBean restBean;
     private final Map<String, OutputStream> outputMapping;
     private final Set<Object> resourceIdList;
-    private final Context context;
-
-    private static Context initContext(final Job job) {
-
-        final Context c = new Context();
-        if (job != null) {
-            for (final Param param : job.getParamList()) {
-                c.setProperty(param.getName(), param.getValue());
-            }
-        }
-
-        return c;
-    }
 
     public CrawlerRestTaskController(final RestBean restBean, final Job job) {
 
-        super(3, restBean.getCrawlerBean().getThreadPoolSize(), restBean.getId());
+        super(3, restBean.getCrawlerBean().getThreadPoolSize(), restBean.getId(), job);
         this.restBean = restBean;
-        this.context = initContext(job);
         this.outputMapping = new HashMap<>();
         this.resourceIdList = new HashSet<>();
 
@@ -112,10 +96,6 @@ public class CrawlerRestTaskController extends CrawlerTaskController {
                 log.error("Unable to go to the entry point: {}", e.getMessage());
             }
         }
-    }
-
-    public Context getContext() {
-        return context;
     }
 
     private synchronized OutputStream getOutputStream(final String path) throws IOException {

@@ -72,7 +72,7 @@ public class CrawlerWebTask implements Runnable {
     @Override
     public void run() {
 
-        ThreadUtil.sleep(controller.getSourceBean().getCrawler().getLatency());
+        ThreadUtil.sleep(controller.getCrawlerBean().getLatency());
 
         log.info("GET {}", resourceCoordinates.getUri());
 
