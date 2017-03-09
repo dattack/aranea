@@ -16,6 +16,7 @@
 package com.dattack.aranea.engine;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 
 import org.apache.commons.lang.ObjectUtils;
 
@@ -25,8 +26,14 @@ import org.apache.commons.lang.ObjectUtils;
  */
 public class ResourceCoordinates {
 
+    private static final int DEFAULT_HTTP_PORT = 80;
+    private static final int DEFAULT_HTTPS_PORT = 443;
+
     private final URI uri;
     private final URI referer;
+
+    // the same URI representation than 'uri' parameter but ignoring the schema and fragment parts
+    private URI internalUri;
 
     public ResourceCoordinates(final URI uri) {
         this(uri, null);
@@ -34,15 +41,8 @@ public class ResourceCoordinates {
 
     public ResourceCoordinates(final URI uri, final URI referer) {
         this.uri = uri;
-        this.referer = referer;
-    }
-
-    public URI getUri() {
-        return uri;
-    }
-
-    public URI getReferer() {
-        return referer;
+        this.referer = referer == null ? null : referer.normalize();
+        this.internalUri = getInternalUri();
     }
 
     @Override
@@ -57,16 +57,62 @@ public class ResourceCoordinates {
             return false;
         }
         ResourceCoordinates other = (ResourceCoordinates) obj;
-        return uri.equals(other.getUri());
+        // ignore protocol
+        return internalUri.equals(other.internalUri);
+    }
+
+    public URI getReferer() {
+        return referer;
+    }
+
+    public URI getUri() {
+        return uri;
     }
 
     @Override
     public int hashCode() {
-        return uri.hashCode();
+        return internalUri.hashCode();
     }
 
     @Override
     public String toString() {
         return String.format("ResourceCoordinates [uri=%s, referer=%s]", uri, ObjectUtils.toString(referer, ""));
+    }
+
+    private URI getInternalUri() {
+
+        if (internalUri == null) {
+            try {
+                internalUri = new URI(null, // schema
+                        uri.getUserInfo(), // user info
+                        uri.getHost(), // host
+                        normalizePort(), // port
+                        uri.normalize().getPath(), // path
+                        uri.getQuery(), // query
+                        null); // fragment
+            } catch (URISyntaxException e) {
+                // this should never happen
+                internalUri = uri;
+            }
+        }
+        return internalUri;
+    }
+
+    private int normalizePort() {
+
+        int port;
+        switch (uri.getScheme().toLowerCase()) {
+        case "http":
+            port = (uri.getPort() == DEFAULT_HTTP_PORT ? -1 : uri.getPort());
+            break;
+        case "https":
+            port = (uri.getPort() == DEFAULT_HTTPS_PORT ? -1 : uri.getPort());
+            break;
+        default:
+            port = uri.getPort();
+            break;
+        }
+
+        return port;
     }
 }
