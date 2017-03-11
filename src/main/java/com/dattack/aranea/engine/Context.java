@@ -33,8 +33,8 @@ public final class Context {
     public static final String CURRENT_DATE_TIME = "current_datetime";
     public static final String CURRENT_DATE = "current_date";
 
-    private static final SimpleDateFormat DATE_TIME_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy");
+    private static final SimpleDateFormat DATE_TIME_FORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmss");
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMdd");
 
     private final BaseConfiguration configuration;
 
