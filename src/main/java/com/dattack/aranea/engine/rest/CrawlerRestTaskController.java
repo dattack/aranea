@@ -115,10 +115,12 @@ public class CrawlerRestTaskController extends CrawlerTaskController {
         try {
             visited(response.getRequest().getResourceCoordinates());
 
-            final ResourceBean resourceBean = resourceLookup(
-                    response.getRequest().getResourceCoordinates().getUri().toString());
-            if (resourceBean != null && resourceBean.hasAppenders()) {
-                handleResources(resourceBean, resources);
+            if (resources != null) {
+                final ResourceBean resourceBean = resourceLookup(
+                        response.getRequest().getResourceCoordinates().getUri().toString());
+                if (resourceBean != null && resourceBean.hasAppenders()) {
+                    handleResources(resourceBean, resources);
+                }
             }
 
         } catch (final Exception e) {
