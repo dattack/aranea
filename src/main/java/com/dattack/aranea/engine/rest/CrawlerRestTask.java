@@ -63,6 +63,7 @@ class CrawlerRestTask implements Runnable {
     private static final String DATA_KEY = "data";
     private static final String METHOD_KEY = "method";
     private static final String URI_KEY = "uri";
+    private static final String NAVIGATION_CONTEXT_KEY = "navigation_context";
 
     private final ResourceCoordinates resourceCoordinates;
     private final CrawlerRestTaskController controller;
@@ -118,14 +119,19 @@ class CrawlerRestTask implements Runnable {
 
     private ResourceObject extractDataItem(final Object obj) {
 
+        ResourceObject resourceObject = null;
         if (obj != null && obj instanceof Bindings) {
             final Bindings bindings = (Bindings) obj;
             if (!bindings.isEmpty()) {
-                return new ResourceObject(bindings);
+                resourceObject = new ResourceObject();
+                for (final Entry<String, Object> entry : resourceCoordinates.getNavigationContext().entrySet()) {
+                    resourceObject.put(entry.getKey(), entry.getValue());
+                }
+                resourceObject.putAll(bindings);
             }
         }
 
-        return null;
+        return resourceObject;
     }
 
     private void populateConfiguration() {
@@ -213,6 +219,16 @@ class CrawlerRestTask implements Runnable {
 
                 final ResourceCoordinates linkCoordinates = new ResourceCoordinates(new URI(link),
                         resourceCoordinates.getUri());
+
+                linkCoordinates
+                        .addNavigationContext(resourceDiscoveryStatus.getResourceCoordinates().getNavigationContext());
+                if (bindings.containsKey(NAVIGATION_CONTEXT_KEY)) {
+                    final Object contextObj = bindings.get(NAVIGATION_CONTEXT_KEY);
+                    if (contextObj instanceof Bindings) {
+                        linkCoordinates.addNavigationContext((Bindings) contextObj);
+                    }
+                }
+
                 if (controller.submit(linkCoordinates)) {
                     resourceDiscoveryStatus.addNewUri(linkCoordinates.getUri());
                 } else {

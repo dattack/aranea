@@ -17,6 +17,8 @@ package com.dattack.aranea.engine;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.commons.lang.ObjectUtils;
 
@@ -31,6 +33,7 @@ public class ResourceCoordinates {
 
     private final URI uri;
     private final URI referer;
+    private final Map<String, Object> navigationContext;
 
     // the same URI representation than 'uri' parameter but ignoring the schema and fragment parts
     private URI internalUri;
@@ -43,6 +46,23 @@ public class ResourceCoordinates {
         this.uri = uri;
         this.referer = referer == null ? null : referer.normalize();
         this.internalUri = getInternalUri();
+        this.navigationContext = new HashMap<>();
+    }
+
+    public ResourceCoordinates addNavigationContext(final Map<String, Object> map) {
+
+        if (map != null) {
+            navigationContext.putAll(map);
+        }
+        return this;
+    }
+
+    public ResourceCoordinates addNavigationContext(final String key, final Object value) {
+
+        if (key != null) {
+            navigationContext.put(key, value);
+        }
+        return this;
     }
 
     @Override
@@ -56,9 +76,32 @@ public class ResourceCoordinates {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        ResourceCoordinates other = (ResourceCoordinates) obj;
+        final ResourceCoordinates other = (ResourceCoordinates) obj;
         // ignore protocol
         return internalUri.equals(other.internalUri);
+    }
+
+    private URI getInternalUri() {
+
+        if (internalUri == null) {
+            try {
+                internalUri = new URI(null, // schema
+                        uri.getUserInfo(), // user info
+                        uri.getHost(), // host
+                        normalizePort(), // port
+                        uri.normalize().getPath(), // path
+                        uri.getQuery(), // query
+                        null); // fragment
+            } catch (final URISyntaxException e) {
+                // this should never happen
+                internalUri = uri;
+            }
+        }
+        return internalUri;
+    }
+
+    public Map<String, Object> getNavigationContext() {
+        return navigationContext;
     }
 
     public URI getReferer() {
@@ -74,39 +117,15 @@ public class ResourceCoordinates {
         return internalUri.hashCode();
     }
 
-    @Override
-    public String toString() {
-        return String.format("ResourceCoordinates [uri=%s, referer=%s]", uri, ObjectUtils.toString(referer, ""));
-    }
-
-    private URI getInternalUri() {
-
-        if (internalUri == null) {
-            try {
-                internalUri = new URI(null, // schema
-                        uri.getUserInfo(), // user info
-                        uri.getHost(), // host
-                        normalizePort(), // port
-                        uri.normalize().getPath(), // path
-                        uri.getQuery(), // query
-                        null); // fragment
-            } catch (URISyntaxException e) {
-                // this should never happen
-                internalUri = uri;
-            }
-        }
-        return internalUri;
-    }
-
     private int normalizePort() {
 
         int port;
         switch (uri.getScheme().toLowerCase()) {
         case "http":
-            port = (uri.getPort() == DEFAULT_HTTP_PORT ? -1 : uri.getPort());
+            port = uri.getPort() == DEFAULT_HTTP_PORT ? -1 : uri.getPort();
             break;
         case "https":
-            port = (uri.getPort() == DEFAULT_HTTPS_PORT ? -1 : uri.getPort());
+            port = uri.getPort() == DEFAULT_HTTPS_PORT ? -1 : uri.getPort();
             break;
         default:
             port = uri.getPort();
@@ -114,5 +133,10 @@ public class ResourceCoordinates {
         }
 
         return port;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ResourceCoordinates [uri=%s, referer=%s]", uri, ObjectUtils.toString(referer, ""));
     }
 }

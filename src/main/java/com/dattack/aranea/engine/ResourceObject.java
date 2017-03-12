@@ -42,18 +42,6 @@ public class ResourceObject {
         this.internalMap = new HashMap<>(map);
     }
 
-    public Object put(final String key, final Object value) {
-        return internalMap.put(key, value);
-    }
-
-    public Object get(final String key) {
-        return internalMap.get(key);
-    }
-
-    public Object getId() {
-        return get(ID);
-    }
-
     public AbstractConfiguration compileConfiguration() {
 
         final BaseConfiguration configuration = new BaseConfiguration();
@@ -64,5 +52,21 @@ public class ResourceObject {
         }
 
         return configuration;
+    }
+
+    public Object get(final String key) {
+        return internalMap.get(key);
+    }
+
+    public Object getId() {
+        return get(ID);
+    }
+
+    public Object put(final String key, final Object value) {
+        return internalMap.put(key, value);
+    }
+
+    public void putAll(final Map<String, Object> map) {
+        this.internalMap.putAll(map);
     }
 }
